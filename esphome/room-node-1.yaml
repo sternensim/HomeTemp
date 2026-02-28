@@ -1,0 +1,165 @@
+# ESPHome Configuration — Room Node 1 (Living Room)
+# Hardware: ESP32 + BME680 + SSD1306 OLED + TP4056 charging
+# Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensors)
+
+esphome:
+  name: room-node-1
+  friendly_name: Living Room Node
+  platform: ESP32
+  board: esp32dev
+
+# WiFi connectivity
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback AP if WiFi connection fails
+  ap:
+    ssid: "ESPHome-Node-1-Fallback"
+    password: "esphome123"
+
+# Native Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+# Over-the-air firmware updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Logging
+logger:
+  level: INFO
+
+# I2C bus for BME680 + OLED (GPIO21=SDA, GPIO22=SCL)
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+  frequency: 400kHz
+
+# BME680 environmental sensor
+bme680_bsec:
+  address: 0x77
+  temperature_offset: 2.0
+  iaq_mode: static
+  state_save_interval: 6h
+  supply_voltage: 3.3V
+  operating_age: 28d
+
+# Sensor definitions (all from BME680)
+sensor:
+  - platform: bme680_bsec
+    temperature:
+      name: "Living Room Temperature"
+      id: temp
+      accuracy_decimals: 1
+      filters:
+        - offset: 0.0
+    pressure:
+      name: "Living Room Pressure"
+      id: press
+      accuracy_decimals: 1
+    humidity:
+      name: "Living Room Humidity"
+      id: humid
+      accuracy_decimals: 1
+    gas_resistance:
+      name: "Living Room Gas Resistance"
+      id: gas_res
+    iaq:
+      name: "Living Room IAQ Score"
+      id: iaq
+      accuracy_decimals: 0
+    co2_equivalent:
+      name: "Living Room CO2 Equivalent"
+      id: co2_eq
+      accuracy_decimals: 1
+    breath_voc_equivalent:
+      name: "Living Room VOC Equivalent"
+      id: voc_eq
+      accuracy_decimals: 1
+
+  # WiFi signal strength
+  - platform: wifi_signal
+    name: "Living Room Node WiFi Signal"
+    update_interval: 60s
+
+  # Uptime tracker
+  - platform: uptime
+    name: "Living Room Node Uptime"
+
+# Text sensor for IAQ classification
+text_sensor:
+  - platform: bme680_bsec
+    iaq_accuracy:
+      name: "Living Room IAQ Accuracy"
+
+# OLED display (SSD1306, 128×64 pixels)
+font:
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 24
+    bpp: 4
+  - file: "gfonts://Roboto"
+    id: font_medium
+    size: 16
+    bpp: 4
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 12
+    bpp: 4
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    rotation: 0
+    update_interval: 5s
+    brightness: 100%
+    lambda: |-
+      // Title
+      it.printf(0, 0, id(font_medium), "Living Room");
+
+      // Temperature and Humidity on one line
+      it.printf(0, 20, id(font_small), "%.1f°C  %.0f%%", id(temp).state, id(humid).state);
+
+      // Pressure
+      it.printf(0, 34, id(font_small), "P: %.0f hPa", id(press).state);
+
+      // IAQ Score with simple status bar
+      it.printf(0, 48, id(font_small), "IAQ: %.0f", id(iaq).state);
+
+      // IAQ status indicator (green/yellow/red)
+      int iaq_val = (int)id(iaq).state;
+      if (iaq_val < 50) {
+        it.rectangle(100, 48, 28, 6, COLOR_ON);  // Good - green outline
+      } else if (iaq_val < 100) {
+        it.filled_rectangle(100, 48, 28, 6, COLOR_ON);  // OK - filled
+      } else {
+        it.rectangle(100, 48, 10, 6, COLOR_ON);  // Poor - red
+      }
+
+# Deep sleep configuration
+# 30s awake (WiFi connect + sensor read + OLED update)
+# 5min sleep between readings
+deep_sleep:
+  run_duration: 30s
+  sleep_duration: 5min
+  id: deep_sleep_control
+
+# Button to prevent sleep (useful for debugging)
+button:
+  - platform: restart
+    name: "Living Room Node Restart"
+  - platform: template
+    name: "Living Room Node Force Wake"
+    on_press:
+      - deep_sleep.prevent: deep_sleep_control
+
+# Status LED (if available on your board)
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true

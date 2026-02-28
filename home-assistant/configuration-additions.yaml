@@ -1,0 +1,142 @@
+# Home Assistant Configuration Additions
+# Add these sections to your Home Assistant configuration.yaml file
+# (usually located at /root/config/configuration.yaml in HA OS)
+
+# ============================================================================
+# Automations and Scripts
+# ============================================================================
+# Include external automation files
+automation: !include automations.yaml
+
+# ============================================================================
+# Lovelace UI Configuration
+# ============================================================================
+# Option 1: Use UI-based dashboard (recommended)
+# Create dashboard via UI: Settings → Dashboards → Create Dashboard
+
+# Option 2: If you prefer YAML-based dashboard:
+# lovelace: !include ui-lovelace.yaml
+# (then copy lovelace-dashboard.yaml content to ui-lovelace.yaml)
+
+# ============================================================================
+# Logger Configuration
+# ============================================================================
+logger:
+  default: info
+  # Reduce noise from ESPHome
+  logs:
+    esphome.api: debug
+    esphome.dashboard: info
+
+# ============================================================================
+# History Settings
+# ============================================================================
+history:
+  # Keep 30 days of history by default
+  purge_keep_days: 30
+
+# ============================================================================
+# Recorder (Database for history)
+# ============================================================================
+recorder:
+  # Only record ESPHome sensors to save disk space
+  include:
+    domains:
+      - sensor
+      - binary_sensor
+  exclude:
+    entity_ids:
+      - sensor.time_online
+      - sensor.uptime
+
+# ============================================================================
+# Homekit (Optional: if you want Apple HomeKit integration)
+# ============================================================================
+# homekit:
+#   - name: Home Environment Monitor
+#     port: 51826
+#     filter:
+#       include_domains:
+#         - sensor
+#         - binary_sensor
+
+# ============================================================================
+# Search Assistant (Optional: for voice control)
+# ============================================================================
+# conversation:
+#   intents:
+#     TellSensorValue:
+#       - What is the [entity]
+#       - What is the [entity] temperature
+
+# ============================================================================
+# Mobile App Settings
+# ============================================================================
+mobile_app:
+
+# ============================================================================
+# HTTP Setup (for accessing HA over local network)
+# ============================================================================
+http:
+  # For self-signed SSL in HA OS, this is typically auto-configured
+  # Change if needed, but default is secure
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+    - 172.30.33.0/24  # HA OS default Docker subnet
+
+# ============================================================================
+# Default Environment Thresholds (customize as needed)
+# ============================================================================
+# These can be used in automations and UI elements for conditional formatting
+
+# Comfortable ranges:
+# Temperature: 18-24°C (64-75°F)
+# Humidity: 40-60%
+# IAQ: 0-50 (excellent), 50-100 (good), 100-150 (fair), 150+ (poor)
+# Pressure: 900-1050 hPa
+
+# ============================================================================
+# Customize Component Behavior
+# ============================================================================
+homeassistant:
+  # Customize sensor units and display names
+  customize:
+    sensor.living_room_node_temperature:
+      unit_of_measurement: "°C"
+      device_class: temperature
+    sensor.living_room_node_humidity:
+      unit_of_measurement: "%"
+      device_class: humidity
+    sensor.living_room_node_pressure:
+      unit_of_measurement: "hPa"
+      device_class: pressure
+    sensor.living_room_node_iaq_score:
+      unit_of_measurement: ""
+      device_class: aqi
+
+    sensor.bedroom_node_temperature:
+      unit_of_measurement: "°C"
+      device_class: temperature
+    sensor.bedroom_node_humidity:
+      unit_of_measurement: "%"
+      device_class: humidity
+    sensor.bedroom_node_pressure:
+      unit_of_measurement: "hPa"
+      device_class: pressure
+    sensor.bedroom_node_iaq_score:
+      unit_of_measurement: ""
+      device_class: aqi
+
+    sensor.office_node_temperature:
+      unit_of_measurement: "°C"
+      device_class: temperature
+    sensor.office_node_humidity:
+      unit_of_measurement: "%"
+      device_class: humidity
+    sensor.office_node_pressure:
+      unit_of_measurement: "hPa"
+      device_class: pressure
+    sensor.office_node_iaq_score:
+      unit_of_measurement: ""
+      device_class: aqi

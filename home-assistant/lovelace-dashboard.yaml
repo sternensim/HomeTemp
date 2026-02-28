@@ -1,0 +1,300 @@
+# Home Assistant Lovelace Dashboard — Home Environmental Monitor
+# Copy this content into Home Assistant under Settings → Dashboards → Create Dashboard
+# OR place in `/config/ui-lovelace.yaml` and enable `lovelace: !include ui-lovelace.yaml` in configuration.yaml
+
+title: Home Environment Monitor
+views:
+  - title: Overview
+    path: overview
+    icon: mdi:home-thermometer
+    cards:
+      # Living Room Gauge
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Living Room
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.living_room_node_iaq_score
+                name: IAQ Score
+                min: 0
+                max: 500
+                needle: true
+                segments:
+                  - from: 0
+                    to: 50
+                    color: "#00c853"  # Good - Green
+                  - from: 50
+                    to: 100
+                    color: "#ffd600"  # Average - Yellow
+                  - from: 100
+                    to: 150
+                    color: "#ff6d00"  # Little Bad - Orange
+                  - from: 150
+                    color: "#d50000"  # Bad - Red
+
+              - type: gauge
+                entity: sensor.living_room_node_temperature
+                name: Temperature (°C)
+                min: 10
+                max: 35
+                needle: true
+                segments:
+                  - from: 10
+                    to: 18
+                    color: "#0066cc"  # Cold - Blue
+                  - from: 18
+                    to: 24
+                    color: "#00c853"  # Comfort - Green
+                  - from: 24
+                    to: 35
+                    color: "#ff6d00"  # Warm - Orange
+
+          - type: entities
+            title: Living Room Details
+            state_color: true
+            entities:
+              - sensor.living_room_node_humidity
+              - sensor.living_room_node_pressure
+              - sensor.living_room_node_co2_equivalent
+              - sensor.living_room_node_voc_equivalent
+              - sensor.living_room_node_wifi_signal
+              - binary_sensor.living_room_node_status
+
+      # Bedroom Gauge
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Bedroom
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.bedroom_node_iaq_score
+                name: IAQ Score
+                min: 0
+                max: 500
+                needle: true
+                segments:
+                  - from: 0
+                    to: 50
+                    color: "#00c853"
+                  - from: 50
+                    to: 100
+                    color: "#ffd600"
+                  - from: 100
+                    to: 150
+                    color: "#ff6d00"
+                  - from: 150
+                    color: "#d50000"
+
+              - type: gauge
+                entity: sensor.bedroom_node_temperature
+                name: Temperature (°C)
+                min: 10
+                max: 35
+                needle: true
+                segments:
+                  - from: 10
+                    to: 18
+                    color: "#0066cc"
+                  - from: 18
+                    to: 24
+                    color: "#00c853"
+                  - from: 24
+                    to: 35
+                    color: "#ff6d00"
+
+          - type: entities
+            title: Bedroom Details
+            state_color: true
+            entities:
+              - sensor.bedroom_node_humidity
+              - sensor.bedroom_node_pressure
+              - sensor.bedroom_node_co2_equivalent
+              - sensor.bedroom_node_voc_equivalent
+              - sensor.bedroom_node_wifi_signal
+              - binary_sensor.bedroom_node_status
+
+      # Office Gauge
+      - type: vertical-stack
+        cards:
+          - type: heading
+            heading: Office
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.office_node_iaq_score
+                name: IAQ Score
+                min: 0
+                max: 500
+                needle: true
+                segments:
+                  - from: 0
+                    to: 50
+                    color: "#00c853"
+                  - from: 50
+                    to: 100
+                    color: "#ffd600"
+                  - from: 100
+                    to: 150
+                    color: "#ff6d00"
+                  - from: 150
+                    color: "#d50000"
+
+              - type: gauge
+                entity: sensor.office_node_temperature
+                name: Temperature (°C)
+                min: 10
+                max: 35
+                needle: true
+                segments:
+                  - from: 10
+                    to: 18
+                    color: "#0066cc"
+                  - from: 18
+                    to: 24
+                    color: "#00c853"
+                  - from: 24
+                    to: 35
+                    color: "#ff6d00"
+
+          - type: entities
+            title: Office Details
+            state_color: true
+            entities:
+              - sensor.office_node_humidity
+              - sensor.office_node_pressure
+              - sensor.office_node_co2_equivalent
+              - sensor.office_node_voc_equivalent
+              - sensor.office_node_wifi_signal
+              - binary_sensor.office_node_status
+
+  # History View
+  - title: History
+    path: history
+    icon: mdi:history
+    cards:
+      - type: history-stats
+        title: Living Room 24h History
+        entity: sensor.living_room_node_temperature
+        period: day
+        stat_period_method: state
+
+      - type: custom:mini-graph-card
+        title: Temperature Trend (24h)
+        entities:
+          - entity: sensor.living_room_node_temperature
+            name: Living Room
+            color: orange
+          - entity: sensor.bedroom_node_temperature
+            name: Bedroom
+            color: blue
+          - entity: sensor.office_node_temperature
+            name: Office
+            color: green
+        height: 150
+        hours_to_show: 24
+        points_per_hour: 4
+        show:
+          graph: line
+
+      - type: custom:mini-graph-card
+        title: Humidity Trend (24h)
+        entities:
+          - entity: sensor.living_room_node_humidity
+            name: Living Room
+            color: orange
+          - entity: sensor.bedroom_node_humidity
+            name: Bedroom
+            color: blue
+          - entity: sensor.office_node_humidity
+            name: Office
+            color: green
+        height: 150
+        hours_to_show: 24
+        points_per_hour: 4
+        show:
+          graph: line
+
+      - type: custom:mini-graph-card
+        title: IAQ Score Trend (24h)
+        entities:
+          - entity: sensor.living_room_node_iaq_score
+            name: Living Room
+            color: orange
+          - entity: sensor.bedroom_node_iaq_score
+            name: Bedroom
+            color: blue
+          - entity: sensor.office_node_iaq_score
+            name: Office
+            color: green
+        height: 150
+        hours_to_show: 24
+        points_per_hour: 4
+        show:
+          graph: line
+
+  # System View
+  - title: System
+    path: system
+    icon: mdi:devices
+    cards:
+      - type: heading
+        heading: Node Status
+
+      - type: entities
+        title: Nodes Overview
+        entities:
+          - binary_sensor.living_room_node_status
+          - sensor.living_room_node_uptime
+          - sensor.living_room_node_wifi_signal
+          - binary_sensor.bedroom_node_status
+          - sensor.bedroom_node_uptime
+          - sensor.bedroom_node_wifi_signal
+          - binary_sensor.office_node_status
+          - sensor.office_node_uptime
+          - sensor.office_node_wifi_signal
+
+      - type: heading
+        heading: Node Control
+
+      - type: button
+        name: Restart All Nodes
+        show_icon: true
+        show_name: true
+        icon: mdi:restart
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id:
+              - button.living_room_node_restart
+              - button.bedroom_node_restart
+              - button.office_node_restart
+
+      - type: vertical-stack
+        cards:
+          - type: button
+            name: Living Room Node
+            show_icon: true
+            icon: mdi:devices
+            tap_action:
+              action: navigate
+              navigation_path: /config/devices/device/living_room_node
+
+          - type: button
+            name: Bedroom Node
+            show_icon: true
+            icon: mdi:devices
+            tap_action:
+              action: navigate
+              navigation_path: /config/devices/device/bedroom_node
+
+          - type: button
+            name: Office Node
+            show_icon: true
+            icon: mdi:devices
+            tap_action:
+              action: navigate
+              navigation_path: /config/devices/device/office_node

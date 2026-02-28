@@ -1,0 +1,173 @@
+# Home Assistant Automations — Environmental Monitoring
+# Add these automations to your Home Assistant configuration.yaml:
+#   automation: !include automations.yaml
+# OR add each automation individually to the UI
+
+# Alert when IAQ is poor (unhealthy) in any room
+- id: alert_poor_iaq_living_room
+  alias: Alert - Living Room Poor Air Quality
+  description: Notify when Living Room IAQ score > 150 (unhealthy)
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.living_room_node_iaq_score
+    above: 150
+  action:
+    service: persistent_notification.create
+    data:
+      title: Poor Air Quality Alert
+      message: "Living Room IAQ score is {{ states('sensor.living_room_node_iaq_score') }}. Consider opening a window."
+      notification_id: "living_room_poor_iaq"
+
+- id: alert_poor_iaq_bedroom
+  alias: Alert - Bedroom Poor Air Quality
+  description: Notify when Bedroom IAQ score > 150 (unhealthy)
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.bedroom_node_iaq_score
+    above: 150
+  action:
+    service: persistent_notification.create
+    data:
+      title: Poor Air Quality Alert
+      message: "Bedroom IAQ score is {{ states('sensor.bedroom_node_iaq_score') }}. Consider opening a window."
+      notification_id: "bedroom_poor_iaq"
+
+- id: alert_poor_iaq_office
+  alias: Alert - Office Poor Air Quality
+  description: Notify when Office IAQ score > 150 (unhealthy)
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.office_node_iaq_score
+    above: 150
+  action:
+    service: persistent_notification.create
+    data:
+      title: Poor Air Quality Alert
+      message: "Office IAQ score is {{ states('sensor.office_node_iaq_score') }}. Consider opening a window."
+      notification_id: "office_poor_iaq"
+
+# Clear alerts when air quality improves
+- id: clear_alert_good_iaq_living_room
+  alias: Clear Alert - Living Room Good Air Quality
+  description: Clear alert when Living Room IAQ improves
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.living_room_node_iaq_score
+    below: 100
+  action:
+    service: persistent_notification.dismiss
+    data:
+      notification_id: "living_room_poor_iaq"
+
+- id: clear_alert_good_iaq_bedroom
+  alias: Clear Alert - Bedroom Good Air Quality
+  description: Clear alert when Bedroom IAQ improves
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.bedroom_node_iaq_score
+    below: 100
+  action:
+    service: persistent_notification.dismiss
+    data:
+      notification_id: "bedroom_poor_iaq"
+
+- id: clear_alert_good_iaq_office
+  alias: Clear Alert - Office Good Air Quality
+  description: Clear alert when Office IAQ improves
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.office_node_iaq_score
+    below: 100
+  action:
+    service: persistent_notification.dismiss
+    data:
+      notification_id: "office_poor_iaq"
+
+# Alert when temperature is too high
+- id: alert_high_temperature
+  alias: Alert - High Temperature
+  description: Notify when temperature exceeds comfortable range
+  trigger:
+    platform: numeric_state
+    entity_id:
+      - sensor.living_room_node_temperature
+      - sensor.bedroom_node_temperature
+      - sensor.office_node_temperature
+    above: 28
+  action:
+    service: persistent_notification.create
+    data:
+      title: High Temperature Alert
+      message: "{{ trigger.entity_id }} is at {{ trigger.to_state.state }}°C"
+      notification_id: "high_temp_alert"
+
+# Alert when temperature is too low
+- id: alert_low_temperature
+  alias: Alert - Low Temperature
+  description: Notify when temperature is below comfortable range
+  trigger:
+    platform: numeric_state
+    entity_id:
+      - sensor.living_room_node_temperature
+      - sensor.bedroom_node_temperature
+      - sensor.office_node_temperature
+    below: 16
+  action:
+    service: persistent_notification.create
+    data:
+      title: Low Temperature Alert
+      message: "{{ trigger.entity_id }} is at {{ trigger.to_state.state }}°C"
+      notification_id: "low_temp_alert"
+
+# Alert when humidity is too high
+- id: alert_high_humidity
+  alias: Alert - High Humidity
+  description: Notify when humidity exceeds 70%
+  trigger:
+    platform: numeric_state
+    entity_id:
+      - sensor.living_room_node_humidity
+      - sensor.bedroom_node_humidity
+      - sensor.office_node_humidity
+    above: 70
+  action:
+    service: persistent_notification.create
+    data:
+      title: High Humidity Alert
+      message: "{{ trigger.entity_id }} is at {{ trigger.to_state.state }}%. Consider using a dehumidifier."
+      notification_id: "high_humidity_alert"
+
+# Alert when humidity is too low
+- id: alert_low_humidity
+  alias: Alert - Low Humidity
+  description: Notify when humidity drops below 30%
+  trigger:
+    platform: numeric_state
+    entity_id:
+      - sensor.living_room_node_humidity
+      - sensor.bedroom_node_humidity
+      - sensor.office_node_humidity
+    below: 30
+  action:
+    service: persistent_notification.create
+    data:
+      title: Low Humidity Alert
+      message: "{{ trigger.entity_id }} is at {{ trigger.to_state.state }}%. Consider using a humidifier."
+      notification_id: "low_humidity_alert"
+
+# Log sensor data every hour (optional history tracking)
+- id: log_sensor_readings
+  alias: Log Sensor Readings
+  description: Log all sensor readings every hour for trending
+  trigger:
+    platform: time_pattern
+    hours: "/1"
+    minutes: "0"
+    seconds: "0"
+  action:
+    service: logger.log
+    data:
+      message: >
+        LivingRoom: {{ states('sensor.living_room_node_temperature') }}°C,
+        {{ states('sensor.living_room_node_humidity') }}% humidity,
+        IAQ: {{ states('sensor.living_room_node_iaq_score') }}
