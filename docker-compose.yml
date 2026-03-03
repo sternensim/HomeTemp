@@ -51,27 +51,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # Optional: Portainer (container management UI)
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: unless-stopped
-    ports:
-      - "9000:9000"       # Portainer web UI
-      - "8000:8000"       # Portainer edge agent
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./portainer/data:/data
-    networks:
-      - homeautomation
-
-networks:
-  homeautomation:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-
 # Quick start commands:
 # docker-compose up -d              → Start all services
 # docker-compose down               → Stop all services
