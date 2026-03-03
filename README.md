@@ -36,6 +36,7 @@ HomeAutomation/
 │   ├── room-node-1.yaml               ← Living Room config
 │   ├── room-node-2.yaml               ← Bedroom config
 │   ├── room-node-3.yaml               ← Office config
+│   ├── kitchen-dht11.yaml             ← Kitchen config (DHT11 sensor)
 │   └── display-station.yaml           ← TENSTAR 2.8" LCD central display
 │
 ├── home-assistant/
@@ -284,7 +285,8 @@ Home Assistant's built-in recorder keeps 10 days of raw data. For months or year
 | File | Purpose |
 |------|---------|
 | `esphome/secrets.yaml` | **KEEP SECRET!** WiFi credentials & API keys |
-| `esphome/room-node-*.yaml` | Node firmware configs (one per room) |
+| `esphome/room-node-*.yaml` | Node firmware configs — Living Room, Bedroom, Office (BME680) |
+| `esphome/kitchen-dht11.yaml` | Kitchen node firmware (DHT11 — temp + humidity only) |
 | `esphome/display-station.yaml` | Central display firmware (TENSTAR 2.8" LCD) |
 | `home-assistant/lovelace-dashboard.yaml` | Dashboard UI layout |
 | `home-assistant/automations.yaml` | Alerts & triggers |

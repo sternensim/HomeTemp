@@ -1,0 +1,120 @@
+# ESPHome Configuration — Kitchen Node
+# Hardware: ESP32 + DHT11 + TP4056 charging
+# Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensor)
+#
+# ⚠  DHT11 limitations vs the BME680 nodes:
+#    - Temperature: 0–50°C range, ±2°C accuracy, whole degrees only
+#    - Humidity:    20–90% RH range, ±5% accuracy, whole percent only
+#    - No pressure, no IAQ, no CO2, no VOC readings
+#
+# Wiring:
+#   DHT11 pin 1 (VCC)  → 3.3V
+#   DHT11 pin 2 (DATA) → GPIO4  +  10kΩ pull-up resistor to 3.3V
+#   DHT11 pin 4 (GND)  → GND
+#   (pin 3 is NC)
+
+esphome:
+  name: kitchen-dht11
+  friendly_name: Kitchen Node
+  platform: ESP32
+  board: esp32dev
+
+# WiFi connectivity
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "ESPHome-Kitchen-Fallback"
+    password: "esphome123"
+
+# Native Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+# Over-the-air firmware updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Logging
+logger:
+  level: INFO
+
+# DHT11 sensor (single-wire, no I2C bus needed)
+# GPIO21/GPIO22 are still free if you want to add an I2C OLED later.
+sensor:
+  - platform: dht
+    pin: GPIO4
+    model: DHT11
+    update_interval: 10s   # short interval so we get readings during 30s wake window
+
+    temperature:
+      name: "Kitchen Temperature"
+      id: temp
+      accuracy_decimals: 0  # DHT11 only outputs whole degrees
+      filters:
+        - offset: 0.0        # adjust if readings are consistently off
+
+    humidity:
+      name: "Kitchen Humidity"
+      id: humid
+      accuracy_decimals: 0  # DHT11 only outputs whole percent
+
+  # Station health
+  - platform: wifi_signal
+    name: "Kitchen Node WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Kitchen Node Uptime"
+
+# OLED display (SSD1306 128×64) — uses I2C on GPIO21/GPIO22
+# Uncomment this block if you attach an OLED to the node.
+# i2c:
+#   sda: GPIO21
+#   scl: GPIO22
+#   scan: true
+#   frequency: 400kHz
+#
+# font:
+#   - file: "gfonts://Roboto"
+#     id: font_medium
+#     size: 16
+#     bpp: 4
+#   - file: "gfonts://Roboto"
+#     id: font_small
+#     size: 12
+#     bpp: 4
+#
+# display:
+#   - platform: ssd1306_i2c
+#     model: "SSD1306 128x64"
+#     address: 0x3C
+#     rotation: 0
+#     update_interval: 10s
+#     brightness: 100%
+#     lambda: |-
+#       it.printf(0, 0,  id(font_medium), "Kitchen");
+#       it.printf(0, 20, id(font_small),  "%.0f°C  %.0f%%",
+#                 id(temp).state, id(humid).state);
+
+# Deep sleep — same 5-minute cycle as the other nodes
+deep_sleep:
+  run_duration: 30s
+  sleep_duration: 5min
+  id: deep_sleep_control
+
+button:
+  - platform: restart
+    name: "Kitchen Node Restart"
+  - platform: template
+    name: "Kitchen Node Force Wake"
+    on_press:
+      - deep_sleep.prevent: deep_sleep_control
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
