@@ -1,0 +1,382 @@
+# ESPHome Configuration — Central Display Station
+# Hardware: TENSTAR ESP32 2.8" LCD (ESP32-2432S028R / "Cheap Yellow Display")
+#   MCU:       ESP32-WROOM-32
+#   Display:   ILI9341  240×320 TFT, SPI (HSPI bus)
+#   Touch:     XPT2046  resistive, separate SPI bus
+#   Backlight: GPIO21 (PWM via LEDC, active HIGH)
+#   RGB LED:   R=GPIO4, G=GPIO16, B=GPIO17 (active-LOW — HIGH=off, LOW=on)
+#
+# Wiring (fixed on board — do not change):
+#   Display SPI:  CLK=GPIO14  MOSI=GPIO13  MISO=GPIO12
+#                 CS=GPIO15   DC=GPIO2     BL=GPIO21
+#   Touch SPI:    CLK=GPIO25  MOSI=GPIO32  MISO=GPIO39
+#                 CS=GPIO33   IRQ=GPIO36
+#
+# Purpose: Always-on central viewing station — shows live temp/humidity/IAQ
+#          for all 3 room nodes, fed from Home Assistant via native API.
+#
+# ⚠  Before flashing: verify entity IDs in HA → Developer Tools → States
+#    Default pattern:  sensor.{esphome_node_name}_{sensor_name_snake_case}
+#    e.g. room-node-1 + "Living Room Temperature" → sensor.room_node_1_living_room_temperature
+
+esphome:
+  name: display-station
+  friendly_name: Display Station
+  platform: ESP32
+  board: esp32dev
+
+# ── Connectivity ─────────────────────────────────────────────────────────────
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Display-Station-AP"
+    password: "esphome123"
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+  on_client_connected:
+    - lvgl.label.update:
+        id: lbl_footer
+        text: "Connected to Home Assistant"
+        text_color: 0x66bb6a
+  on_client_disconnected:
+    - lvgl.label.update:
+        id: lbl_footer
+        text: "Disconnected from Home Assistant"
+        text_color: 0xef5350
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: INFO
+
+# ── SPI buses ────────────────────────────────────────────────────────────────
+# The CYD board uses two separate SPI buses — display and touch are NOT shared.
+
+spi:
+  # Display SPI (HSPI)
+  - id: display_spi
+    clk_pin: GPIO14
+    mosi_pin: GPIO13
+    miso_pin: GPIO12
+
+  # Touch SPI (separate bus)
+  - id: touch_spi
+    clk_pin: GPIO25
+    mosi_pin: GPIO32
+    miso_pin: GPIO39
+
+# ── Backlight (PWM on GPIO21) ─────────────────────────────────────────────────
+
+output:
+  - platform: ledc
+    pin: GPIO21
+    id: backlight_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+
+# ── ILI9341 display ───────────────────────────────────────────────────────────
+# Native portrait 240×320 — rotated 90° for 320×240 landscape layout.
+# If the image appears flipped, try rotation: 270.
+
+display:
+  - platform: ili9xxx
+    model: ILI9341
+    spi_id: display_spi
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    # reset_pin not connected on this board — reset is handled at power-on
+    rotation: 90
+    id: my_display
+    update_interval: never  # LVGL handles all redraws
+
+# ── XPT2046 resistive touch ───────────────────────────────────────────────────
+# Touch calibration: increase logger to DEBUG, run the device, and press the
+# four corners of the screen. Note the raw x/y values logged and update
+# calibration_x_min/max and calibration_y_min/max accordingly.
+#
+# If touch axes are swapped after display rotation, flip swap_x_y.
+
+touchscreen:
+  - platform: xpt2046
+    spi_id: touch_spi
+    cs_pin: GPIO33
+    interrupt_pin: GPIO36
+    id: my_touch
+    update_interval: 50ms
+    threshold: 400
+    calibration_x_min: 200
+    calibration_x_max: 3900
+    calibration_y_min: 200
+    calibration_y_max: 3900
+    swap_x_y: true   # needed when display is rotated 90°
+
+# ── Home Assistant sensor subscriptions ──────────────────────────────────────
+# Each sensor subscribes to a HA entity and updates the matching LVGL label
+# whenever the value changes. The display-station itself has no local sensors.
+
+sensor:
+  # ── Living Room (room-node-1) ──────────────────────────────────────────────
+  - platform: homeassistant
+    id: lr_temp
+    entity_id: sensor.room_node_1_living_room_temperature
+    on_value:
+      - lvgl.label.update:
+          id: lbl_lr_temp
+          text: !lambda 'return str_sprintf("%.1f°", x);'
+
+  - platform: homeassistant
+    id: lr_humid
+    entity_id: sensor.room_node_1_living_room_humidity
+    on_value:
+      - lvgl.label.update:
+          id: lbl_lr_humid
+          text: !lambda 'return str_sprintf("%.0f%%", x);'
+
+  - platform: homeassistant
+    id: lr_iaq
+    entity_id: sensor.room_node_1_living_room_iaq_score
+    on_value:
+      - lvgl.label.update:
+          id: lbl_lr_iaq
+          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
+
+  # ── Bedroom (room-node-2) ──────────────────────────────────────────────────
+  - platform: homeassistant
+    id: br_temp
+    entity_id: sensor.room_node_2_bedroom_temperature
+    on_value:
+      - lvgl.label.update:
+          id: lbl_br_temp
+          text: !lambda 'return str_sprintf("%.1f°", x);'
+
+  - platform: homeassistant
+    id: br_humid
+    entity_id: sensor.room_node_2_bedroom_humidity
+    on_value:
+      - lvgl.label.update:
+          id: lbl_br_humid
+          text: !lambda 'return str_sprintf("%.0f%%", x);'
+
+  - platform: homeassistant
+    id: br_iaq
+    entity_id: sensor.room_node_2_bedroom_iaq_score
+    on_value:
+      - lvgl.label.update:
+          id: lbl_br_iaq
+          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
+
+  # ── Office (room-node-3) ───────────────────────────────────────────────────
+  - platform: homeassistant
+    id: of_temp
+    entity_id: sensor.room_node_3_office_temperature
+    on_value:
+      - lvgl.label.update:
+          id: lbl_of_temp
+          text: !lambda 'return str_sprintf("%.1f°", x);'
+
+  - platform: homeassistant
+    id: of_humid
+    entity_id: sensor.room_node_3_office_humidity
+    on_value:
+      - lvgl.label.update:
+          id: lbl_of_humid
+          text: !lambda 'return str_sprintf("%.0f%%", x);'
+
+  - platform: homeassistant
+    id: of_iaq
+    entity_id: sensor.room_node_3_office_iaq_score
+    on_value:
+      - lvgl.label.update:
+          id: lbl_of_iaq
+          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
+
+  # Station health
+  - platform: wifi_signal
+    name: "Display Station WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Display Station Uptime"
+    update_interval: 60s
+
+button:
+  - platform: restart
+    name: "Display Station Restart"
+
+# ── LVGL UI ───────────────────────────────────────────────────────────────────
+# Layout (320×240 landscape):
+#
+#  ┌──────────────────────────────────────────────────────┐  y=0
+#  │  Home Environment Monitor                            │  h=30  header
+#  ├──────────────┬───────────┬──────────┬───────────────-┤  y=30
+#  │ Living Room  │  24.5°    │   45%    │  IAQ 50        │
+#  │              │           │          │                 │  h=66
+#  ├──────────────┼───────────┼──────────┼────────────────┤  y=98  (2px gap)
+#  │ Bedroom      │  22.1°    │   52%    │  IAQ 45        │
+#  │              │           │          │                 │  h=66
+#  ├──────────────┼───────────┼──────────┼────────────────┤  y=166 (2px gap)
+#  │ Office       │  23.8°    │   48%    │  IAQ 62        │
+#  │              │           │          │                 │  h=60
+#  ├──────────────────────────────────────────────────────┤  y=228
+#  │  [HA connection status]                              │  h=12  footer
+#  └──────────────────────────────────────────────────────┘  y=240
+#
+# Columns (x):  Room name=8  Temperature=95  Humidity=190  IAQ=252
+
+lvgl:
+  display_id: my_display
+  touchscreens:
+    - touchscreen_id: my_touch
+  default_font: montserrat_14
+
+  pages:
+    - id: page_main
+      bg_color: 0x0d1b2a
+
+      widgets:
+
+        # ── Header ──────────────────────────────────────────────────────────
+        - label:
+            x: 8
+            y: 8
+            text: "Home Environment Monitor"
+            text_font: montserrat_14
+            text_color: 0xb0c4de
+
+        # ── Living Room row ─────────────────────────────────────────────────
+        - obj:
+            x: 0
+            y: 30
+            width: 320
+            height: 66
+            bg_color: 0x1b3a5c
+            border_width: 0
+            radius: 0
+            widgets:
+              - label:
+                  x: 8
+                  y: 8
+                  text: "Living Room"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
+              - label:
+                  id: lbl_lr_temp
+                  x: 95
+                  y: 4
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xff8a65
+              - label:
+                  id: lbl_lr_humid
+                  x: 190
+                  y: 16
+                  text: "--%"
+                  text_font: montserrat_20
+                  text_color: 0x4fc3f7
+              - label:
+                  id: lbl_lr_iaq
+                  x: 252
+                  y: 22
+                  text: "IAQ --"
+                  text_font: montserrat_14
+                  text_color: 0xa8d8a8
+
+        # ── Bedroom row ─────────────────────────────────────────────────────
+        - obj:
+            x: 0
+            y: 98
+            width: 320
+            height: 66
+            bg_color: 0x122d4b
+            border_width: 0
+            radius: 0
+            widgets:
+              - label:
+                  x: 8
+                  y: 8
+                  text: "Bedroom"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
+              - label:
+                  id: lbl_br_temp
+                  x: 95
+                  y: 4
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xff8a65
+              - label:
+                  id: lbl_br_humid
+                  x: 190
+                  y: 16
+                  text: "--%"
+                  text_font: montserrat_20
+                  text_color: 0x4fc3f7
+              - label:
+                  id: lbl_br_iaq
+                  x: 252
+                  y: 22
+                  text: "IAQ --"
+                  text_font: montserrat_14
+                  text_color: 0xa8d8a8
+
+        # ── Office row ──────────────────────────────────────────────────────
+        - obj:
+            x: 0
+            y: 166
+            width: 320
+            height: 60
+            bg_color: 0x0e2538
+            border_width: 0
+            radius: 0
+            widgets:
+              - label:
+                  x: 8
+                  y: 6
+                  text: "Office"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
+              - label:
+                  id: lbl_of_temp
+                  x: 95
+                  y: 2
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xff8a65
+              - label:
+                  id: lbl_of_humid
+                  x: 190
+                  y: 14
+                  text: "--%"
+                  text_font: montserrat_20
+                  text_color: 0x4fc3f7
+              - label:
+                  id: lbl_of_iaq
+                  x: 252
+                  y: 20
+                  text: "IAQ --"
+                  text_font: montserrat_14
+                  text_color: 0xa8d8a8
+
+        # ── Footer status bar ────────────────────────────────────────────────
+        - label:
+            id: lbl_footer
+            x: 8
+            y: 228
+            text: "Connecting to Home Assistant..."
+            text_font: montserrat_10
+            text_color: 0x607d8b
