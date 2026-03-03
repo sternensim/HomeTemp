@@ -1,0 +1,189 @@
+# InfluxDB + Grafana Setup for Home Environment Monitor
+# ============================================================
+#
+# STEP 1 — Install add-ons in Home Assistant
+# -------------------------------------------
+# Settings → Add-ons → Add-on Store, search and install:
+#   1. "InfluxDB"  (by Community Add-ons)
+#   2. "Grafana"   (by Community Add-ons)
+# Start both add-ons. Enable "Start on boot" and "Watchdog" for each.
+#
+#
+# STEP 2 — Configure InfluxDB
+# -------------------------------------------
+# Open the InfluxDB UI (click "Open Web UI" on the add-on page):
+#   1. Complete the initial setup wizard:
+#        Organization:  home-assistant
+#        Bucket:        homeassistant
+#        Username/PW:   choose your own
+#   2. Go to Data → API Tokens → Generate All-Access Token
+#      Copy the token — you will need it in secrets.yaml and Grafana.
+#
+#
+# STEP 3 — Add the token to secrets.yaml
+# -------------------------------------------
+# In your esphome/secrets.yaml, add:
+#
+#   influxdb_token: "your-token-here"
+#
+#
+# STEP 4 — Add influxdb integration to configuration.yaml
+# -------------------------------------------
+# Paste the block below into your HA configuration.yaml,
+# then restart Home Assistant.
+
+influxdb:
+  api_version: 2
+  ssl: false
+  host: a0d7b954-influxdb   # internal hostname of the HA add-on (do not change)
+  port: 8086
+  token: !secret influxdb_token
+  organization: home-assistant
+  bucket: homeassistant
+
+  # Tag every measurement with a source field (useful for filtering in Grafana)
+  tags:
+    source: esphome
+
+  # Use the sensor's unit_of_measurement as the measurement name
+  # (groups temperature readings together, etc.)
+  default_measurement: units
+
+  # Only forward the sensors we care about — keeps the DB small
+  include:
+    entities:
+      # Living Room
+      - sensor.room_node_1_living_room_temperature
+      - sensor.room_node_1_living_room_humidity
+      - sensor.room_node_1_living_room_pressure
+      - sensor.room_node_1_living_room_iaq_score
+      - sensor.room_node_1_living_room_co2_equivalent
+      - sensor.room_node_1_living_room_voc_equivalent
+      # Bedroom
+      - sensor.room_node_2_bedroom_temperature
+      - sensor.room_node_2_bedroom_humidity
+      - sensor.room_node_2_bedroom_pressure
+      - sensor.room_node_2_bedroom_iaq_score
+      - sensor.room_node_2_bedroom_co2_equivalent
+      - sensor.room_node_2_bedroom_voc_equivalent
+      # Office
+      - sensor.room_node_3_office_temperature
+      - sensor.room_node_3_office_humidity
+      - sensor.room_node_3_office_pressure
+      - sensor.room_node_3_office_iaq_score
+      - sensor.room_node_3_office_co2_equivalent
+      - sensor.room_node_3_office_voc_equivalent
+
+
+# ============================================================
+# STEP 5 — Configure Grafana data source
+# ============================================================
+# Open Grafana (click "Open Web UI", default login admin/admin).
+#
+# Connections → Data Sources → Add new → InfluxDB
+#   Query language:  Flux
+#   URL:             http://a0d7b954-influxdb:8086
+#   Organisation:    home-assistant
+#   Token:           <paste your token>
+#   Default bucket:  homeassistant
+#
+# Click "Save & Test" — should show a green "datasource is working" banner.
+
+
+# ============================================================
+# STEP 6 — Example Flux queries for Grafana panels
+# ============================================================
+# Create a new dashboard, add panels, switch to "Code" mode in the
+# query editor, and paste the Flux queries below.
+#
+# All queries share the same pattern:
+#   from(bucket)  →  range  →  filter by measurement/entity  →  aggregateWindow
+#
+# The |v.timeRangeStart and |v.timeRangeStop variables are automatically
+# filled by Grafana's time picker — no changes needed.
+
+
+# ── Panel: Temperature — all 3 rooms (time series) ───────────────────────────
+#
+# from(bucket: "homeassistant")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r._measurement == "°C")
+#   |> filter(fn: (r) =>
+#       r.entity_id == "sensor.room_node_1_living_room_temperature" or
+#       r.entity_id == "sensor.room_node_2_bedroom_temperature" or
+#       r.entity_id == "sensor.room_node_3_office_temperature"
+#   )
+#   |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
+#   |> map(fn: (r) => ({r with _field: r.friendly_name}))
+#   |> yield(name: "temperature")
+
+
+# ── Panel: Humidity — all 3 rooms (time series) ──────────────────────────────
+#
+# from(bucket: "homeassistant")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r._measurement == "%")
+#   |> filter(fn: (r) =>
+#       r.entity_id == "sensor.room_node_1_living_room_humidity" or
+#       r.entity_id == "sensor.room_node_2_bedroom_humidity" or
+#       r.entity_id == "sensor.room_node_3_office_humidity"
+#   )
+#   |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
+#   |> map(fn: (r) => ({r with _field: r.friendly_name}))
+#   |> yield(name: "humidity")
+
+
+# ── Panel: IAQ Score — all 3 rooms (time series) ─────────────────────────────
+#
+# from(bucket: "homeassistant")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r._measurement == "units")
+#   |> filter(fn: (r) =>
+#       r.entity_id == "sensor.room_node_1_living_room_iaq_score" or
+#       r.entity_id == "sensor.room_node_2_bedroom_iaq_score" or
+#       r.entity_id == "sensor.room_node_3_office_iaq_score"
+#   )
+#   |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
+#   |> map(fn: (r) => ({r with _field: r.friendly_name}))
+#   |> yield(name: "iaq")
+
+
+# ── Panel: Current temperature stat (Stat panel, single room) ────────────────
+# Use this for a big-number "current value" panel.
+#
+# from(bucket: "homeassistant")
+#   |> range(start: -1h)
+#   |> filter(fn: (r) => r._measurement == "°C")
+#   |> filter(fn: (r) => r.entity_id == "sensor.room_node_1_living_room_temperature")
+#   |> last()
+
+
+# ── Panel: Daily min/max temperature (Living Room) ────────────────────────────
+#
+# from(bucket: "homeassistant")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r._measurement == "°C")
+#   |> filter(fn: (r) => r.entity_id == "sensor.room_node_1_living_room_temperature")
+#   |> aggregateWindow(every: 1d, fn: min, createEmpty: false)
+#   |> yield(name: "daily_min")
+#
+# from(bucket: "homeassistant")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r._measurement == "°C")
+#   |> filter(fn: (r) => r.entity_id == "sensor.room_node_1_living_room_temperature")
+#   |> aggregateWindow(every: 1d, fn: max, createEmpty: false)
+#   |> yield(name: "daily_max")
+
+
+# ============================================================
+# DATA RETENTION in InfluxDB
+# ============================================================
+# By default the "homeassistant" bucket keeps data forever.
+# To set a retention policy:
+#   InfluxDB UI → Buckets → homeassistant → Settings
+#   Set "Delete Data" to e.g. 365 days (1 year)
+#
+# Unlike HA's recorder, InfluxDB stores every individual reading
+# (one per wake cycle ≈ every 5 min), not just hourly summaries.
+# For 3 rooms × 7 sensors × 365 days × 288 readings/day ≈ ~2.2M rows/year
+# which is ~50–100 MB — perfectly fine on a Raspberry Pi.

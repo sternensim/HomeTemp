@@ -8,17 +8,19 @@
 
 ### What You're Building
 
-3 sensor nodes (ESP32 + BME680 + OLED) + 1 central hub (Raspberry Pi + Home Assistant OS)
+3 sensor nodes (ESP32 + BME680 + OLED) + 1 central display station (TENSTAR 2.8" LCD) + 1 central hub (Raspberry Pi + Home Assistant OS)
 
 **Features:**
 - Real-time environmental monitoring (temperature, humidity, pressure, air quality)
-- Local OLED display on each node
+- Local OLED display on each sensor node
+- Central 2.8" colour touchscreen showing all rooms at a glance (LVGL UI)
+- Long-term data storage and graphing via InfluxDB + Grafana (optional)
 - Cloud-free (everything stays on your home network)
 - WiFi-enabled with deep sleep for battery efficiency
 - Solar charging (optional, extends battery life)
 - Home Assistant integration for dashboards and automations
 
-**Budget:** ~$75 for hardware (3 nodes)
+**Budget:** ~$75 for hardware (3 nodes) + ~$15 for display station
 
 ---
 
@@ -33,12 +35,14 @@ HomeAutomation/
 │   ├── secrets.yaml                   ← WiFi credentials (KEEP SECRET!)
 │   ├── room-node-1.yaml               ← Living Room config
 │   ├── room-node-2.yaml               ← Bedroom config
-│   └── room-node-3.yaml               ← Office config
+│   ├── room-node-3.yaml               ← Office config
+│   └── display-station.yaml           ← TENSTAR 2.8" LCD central display
 │
 ├── home-assistant/
 │   ├── configuration-additions.yaml   ← HA config snippets
 │   ├── lovelace-dashboard.yaml        ← Dashboard UI config
-│   └── automations.yaml               ← Alerts & triggers
+│   ├── automations.yaml               ← Alerts & triggers
+│   └── influxdb-grafana.yaml          ← Long-term storage setup guide
 │
 ├── hardware/
 │   └── ENCLOSURE-DESIGN.md            ← 3D printing guide
@@ -133,7 +137,88 @@ HomeAutomation/
    - Trigger test automation
    - Check mobile notifications (optional)
 
-### Phase 5: Deploy
+### Phase 5: Central Display Station
+
+**Time: 1 hour**
+
+The display station is an always-on TENSTAR ESP32 2.8" LCD (aka "Cheap Yellow Display") that shows live temperature, humidity, and IAQ for all 3 rooms on a single 320×240 colour screen.
+
+1. **Flash the firmware**
+   - Flash `esphome/display-station.yaml` to the TENSTAR board via USB
+   - It will appear in Home Assistant automatically
+
+2. **Verify entity IDs**
+   - Open HA → Developer Tools → States
+   - Confirm the entity IDs match the ones in `display-station.yaml`
+   - Default pattern: `sensor.room_node_1_living_room_temperature`
+
+3. **Calibrate the touch screen** *(optional)*
+   - Set `logger: level: DEBUG` in `display-station.yaml`, reflash
+   - Watch ESPHome logs while touching the screen corners
+   - Update `calibration_x_min/max` and `calibration_y_min/max` with the raw values
+
+4. **Adjust display orientation if needed**
+   - If the image is upside down, change `rotation: 90` to `rotation: 270`
+
+**Display layout:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Home Environment Monitor                           │
+├──────────────┬────────────┬──────────┬──────────────┤
+│ Living Room  │  24.5°     │  45%     │  IAQ 50      │
+├──────────────┼────────────┼──────────┼──────────────┤
+│ Bedroom      │  22.1°     │  52%     │  IAQ 45      │
+├──────────────┼────────────┼──────────┼──────────────┤
+│ Office       │  23.8°     │  48%     │  IAQ 62      │
+├─────────────────────────────────────────────────────┤
+│  Connected to Home Assistant                        │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+### Phase 6: Long-Term Storage with InfluxDB + Grafana *(optional)*
+
+**Time: 30–60 minutes**
+
+Home Assistant's built-in recorder keeps 10 days of raw data. For months or years of history with flexible graphs, add InfluxDB and Grafana. Full instructions in [`home-assistant/influxdb-grafana.yaml`](home-assistant/influxdb-grafana.yaml).
+
+**Quick summary:**
+
+1. **Install add-ons** in HA → Add-on Store:
+   - `InfluxDB` (Community Add-ons)
+   - `Grafana` (Community Add-ons)
+
+2. **Set up InfluxDB**
+   - Open its Web UI → run the setup wizard
+   - Organization: `home-assistant` / Bucket: `homeassistant`
+   - Generate an All-Access API token, add it to `secrets.yaml` as `influxdb_token`
+
+3. **Add to `configuration.yaml`** — copy the `influxdb:` block from `influxdb-grafana.yaml` and restart HA
+
+4. **Connect Grafana** → Connections → Data Sources → InfluxDB
+   - URL: `http://a0d7b954-influxdb:8086`
+   - Query language: `Flux`
+   - Paste your token
+
+5. **Build dashboards** using the example Flux queries in `influxdb-grafana.yaml`:
+   - Multi-room temperature/humidity/IAQ time series
+   - Daily min/max overlays
+   - Current-value stat panels
+
+**Data retention comparison:**
+
+| Storage | Raw retention | Long-term |
+|---------|--------------|-----------|
+| HA Recorder | 10–30 days | Hourly averages only |
+| InfluxDB | Set per bucket (e.g. 1 year) | Full resolution forever |
+
+> For 3 rooms × 7 sensors × 5-minute readings: ~50–100 MB per year in InfluxDB.
+
+---
+
+### Phase 7: Deploy
 
 **Time: 30 minutes**
 
@@ -200,9 +285,11 @@ HomeAutomation/
 |------|---------|
 | `esphome/secrets.yaml` | **KEEP SECRET!** WiFi credentials & API keys |
 | `esphome/room-node-*.yaml` | Node firmware configs (one per room) |
+| `esphome/display-station.yaml` | Central display firmware (TENSTAR 2.8" LCD) |
 | `home-assistant/lovelace-dashboard.yaml` | Dashboard UI layout |
 | `home-assistant/automations.yaml` | Alerts & triggers |
 | `home-assistant/configuration-additions.yaml` | HA config additions |
+| `home-assistant/influxdb-grafana.yaml` | InfluxDB + Grafana setup guide & Flux queries |
 
 ### GPIO Pin Usage
 
@@ -282,11 +369,6 @@ Quick checks:
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Cloud (optional, but not needed for this system)            │
-│ - Everything stays on your local network                    │
-└─────────────────────────────────────────────────────────────┘
-
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │   Living Room   │  │     Bedroom     │  │     Office      │
 │   Node (ESP32)  │  │   Node (ESP32)  │  │   Node (ESP32)  │
@@ -294,25 +376,27 @@ Quick checks:
 │   + OLED        │  │   + OLED        │  │   + OLED        │
 │   + LiPo + Solar│  │   + LiPo + Solar│  │   + LiPo + Solar│
 └────────┬────────┘  └────────┬────────┘  └────────┬────────┘
-         │                    │                    │
-         └────────────────────┼────────────────────┘
+         │                    │                     │
+         └────────────────────┼─────────────────────┘
                               │
                      WiFi (ESPHome API)
                               │
-         ┌────────────────────┴────────────────────┐
-         │                                         │
-    ┌────▼────────────────────────────────────┐   │
-    │  Raspberry Pi Running Home Assistant OS │   │
-    │  + ESPHome add-on (manages nodes)       │   │
-    │  + File Editor (edit configs)           │   │
-    │  + Automations (triggers/alerts)        │   │
-    └────┬────────────────────────────────────┘   │
-         │                                         │
-         ├─ http://homeassistant.local:8123      │
-         │  (Web dashboard on Pi)                 │
-         │                                         │
-         └─ Any browser/tablet/phone              │
-            (Access dashboard anywhere at home)
+    ┌─────────────────────────┴──────────────────────────┐
+    │       Raspberry Pi — Home Assistant OS             │
+    │       + ESPHome add-on  (manages nodes)            │
+    │       + InfluxDB add-on (long-term storage)        │
+    │       + Grafana add-on  (historical graphs)        │
+    │       + Automations     (alerts & triggers)        │
+    └──────────────┬─────────────────────────────────────┘
+                   │
+         ┌─────────┴──────────┐
+         │                    │
+    ┌────▼──────────┐   ┌─────▼──────────────────────┐
+    │  HA Dashboard │   │  Display Station           │
+    │  (any browser)│   │  TENSTAR ESP32 2.8" LCD    │
+    │  tablet/phone │   │  320×240 LVGL touchscreen  │
+    └───────────────┘   │  always-on, wall-mounted   │
+                        └────────────────────────────┘
 ```
 
 ---
@@ -358,8 +442,8 @@ Quick checks:
 
 ## File Versions & Updates
 
-**Last updated:** February 2026
-**Plan version:** 1.0 (Complete)
+**Last updated:** March 2026
+**Plan version:** 1.1 — added display station + InfluxDB/Grafana
 **ESPHome version:** Compatible with 2024.12+
 **Home Assistant:** Compatible with 2024.12+
 
