@@ -1,17 +1,28 @@
-# ESPHome Configuration — Kitchen Node
-# Hardware: ESP32 + DHT11 + TP4056 charging
-# Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensor)
+# ESPHome Configuration — Simon's Desk Node
+# Hardware: ESP32 + DHT11 + DS18B20 + TP4056 charging
+# Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensors)
 #
 # ⚠  DHT11 limitations vs the BME680 nodes:
 #    - Temperature: 0–50°C range, ±2°C accuracy, whole degrees only
 #    - Humidity:    20–90% RH range, ±5% accuracy, whole percent only
 #    - No pressure, no IAQ, no CO2, no VOC readings
 #
-# Wiring:
+# Wiring — DHT11:
 #   DHT11 pin 1 (VCC)  → 3.3V
-#   DHT11 pin 2 (DATA) → GPI16  +  10kΩ pull-up resistor to 3.3V
+#   DHT11 pin 2 (DATA) → GPIO4  +  10kΩ pull-up resistor to 3.3V
 #   DHT11 pin 4 (GND)  → GND
 #   (pin 3 is NC)
+#
+# Wiring — DS18B20:
+#   DS18B20 VCC  → GPIO17  (driven HIGH by ESPHome — always 3.3V)
+#   DS18B20 GND  → GND
+#   DS18B20 DATA → GPIO5   +  4.7kΩ pull-up resistor to 3.3V
+#
+# Multiple DS18B20 on one bus:
+#   Wire all DATA lines together to GPIO5 (shared 1-Wire bus).
+#   Each sensor needs its own unique address — find them by enabling
+#   logger: level: DEBUG and checking the boot log for "Found 0x…" lines.
+#   Then replace `index: 0` with `address: 0x<your_address>` per sensor.
 
 esphome:
   name: simon_schreibtisch-dht11
@@ -47,6 +58,11 @@ ota:
 logger:
   level: INFO
 
+# 1-Wire bus for DS18B20
+one_wire:
+  - platform: gpio
+    pin: GPIO5
+
 # DHT11 sensor (single-wire, no I2C bus needed)
 # GPIO21/GPIO22 are still free if you want to add an I2C OLED later.
 sensor:
@@ -66,6 +82,16 @@ sensor:
       name: "simon_schreibtisch Humidity"
       id: humid
       accuracy_decimals: 0  # DHT11 only outputs whole percent
+
+  # DS18B20 temperature probe (1-Wire on GPIO5)
+  # Use `index: 0` for a single sensor on the bus.
+  # For multiple sensors on the same bus, replace index with:
+  #   address: 0x<8-byte address from boot log>
+  - platform: dallas_temp
+    index: 0
+    name: "simon_schreibtisch Probe Temperature"
+    id: probe_temp
+    accuracy_decimals: 1   # DS18B20 resolution: 0.0625°C
 
   # Station health
   - platform: wifi_signal
@@ -110,6 +136,14 @@ deep_sleep:
   run_duration: 30s
   sleep_duration: 5min
   id: deep_sleep_control
+
+# GPIO17 wired to DS18B20 VCC — always driven HIGH at boot (also after deep sleep wake)
+# ESP32 GPIO sources 3.3V @ up to ~40mA; DS18B20 draws ~1mA so this is fine.
+switch:
+  - platform: gpio
+    pin: GPIO17
+    id: sensor_power
+    restore_mode: ALWAYS_ON
 
 button:
   - platform: restart
