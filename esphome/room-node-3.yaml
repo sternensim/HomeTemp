@@ -4,8 +4,11 @@
 esphome:
   name: room-node-3
   friendly_name: Office Node
-  platform: ESP32
+
+esp32:
   board: esp32dev
+  framework:
+    type: arduino
 
 # WiFi connectivity
 wifi:
@@ -16,6 +19,8 @@ wifi:
   ap:
     ssid: "ESPHome-Node-3-Fallback"
     password: "esphome123"
+
+captive_portal:
 
 # Native Home Assistant API
 api:
@@ -156,8 +161,8 @@ button:
     on_press:
       - deep_sleep.prevent: deep_sleep_control
 
-# Status LED
+# Status LED — GPIO16 is safe; GPIO2 is a strapping pin
 status_led:
   pin:
-    number: GPIO2
-    inverted: true
+    number: GPIO16
+    inverted: false

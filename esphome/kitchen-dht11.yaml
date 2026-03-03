@@ -9,15 +9,18 @@
 #
 # Wiring:
 #   DHT11 pin 1 (VCC)  → 3.3V
-#   DHT11 pin 2 (DATA) → GPIO4  +  10kΩ pull-up resistor to 3.3V
+#   DHT11 pin 2 (DATA) → GPI16  +  10kΩ pull-up resistor to 3.3V
 #   DHT11 pin 4 (GND)  → GND
 #   (pin 3 is NC)
 
 esphome:
   name: kitchen-dht11
   friendly_name: Kitchen Node
-  platform: ESP32
+
+esp32:
   board: esp32dev
+  framework:
+    type: arduino
 
 # WiFi connectivity
 wifi:
@@ -27,6 +30,8 @@ wifi:
   ap:
     ssid: "ESPHome-Kitchen-Fallback"
     password: "esphome123"
+
+captive_portal:
 
 # Native Home Assistant API
 api:
@@ -114,7 +119,4 @@ button:
     on_press:
       - deep_sleep.prevent: deep_sleep_control
 
-status_led:
-  pin:
-    number: GPIO2
-    inverted: true
+

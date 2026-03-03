@@ -22,8 +22,11 @@
 esphome:
   name: display-station
   friendly_name: Display Station
-  platform: ESP32
+
+esp32:
   board: esp32dev
+  framework:
+    type: arduino
 
 # ── Connectivity ─────────────────────────────────────────────────────────────
 
