@@ -14,8 +14,8 @@
 #   (pin 3 is NC)
 
 esphome:
-  name: kitchen-dht11
-  friendly_name: Kitchen Node
+  name: lea_schreibtisch-dht11
+  friendly_name: lea_schreibtisch Node
 
 esp32:
   board: esp32dev
@@ -56,24 +56,24 @@ sensor:
     update_interval: 10s   # short interval so we get readings during 30s wake window
 
     temperature:
-      name: "Kitchen Temperature"
+      name: "lea_schreibtisch Temperature"
       id: temp
       accuracy_decimals: 0  # DHT11 only outputs whole degrees
       filters:
         - offset: 0.0        # adjust if readings are consistently off
 
     humidity:
-      name: "Kitchen Humidity"
+      name: "lea_schreibtisch Humidity"
       id: humid
       accuracy_decimals: 0  # DHT11 only outputs whole percent
 
   # Station health
   - platform: wifi_signal
-    name: "Kitchen Node WiFi Signal"
+    name: "lea_schreibtisch Node WiFi Signal"
     update_interval: 60s
 
   - platform: uptime
-    name: "Kitchen Node Uptime"
+    name: "lea_schreibtisch Node Uptime"
 
 # OLED display (SSD1306 128×64) — uses I2C on GPIO21/GPIO22
 # Uncomment this block if you attach an OLED to the node.
@@ -113,9 +113,9 @@ deep_sleep:
 
 button:
   - platform: restart
-    name: "Kitchen Node Restart"
+    name: "lea_schreibtisch Node Restart"
   - platform: template
-    name: "Kitchen Node Force Wake"
+    name: "lea_schreibtisch Node Force Wake"
     on_press:
       - deep_sleep.prevent: deep_sleep_control
 
