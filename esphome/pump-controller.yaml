@@ -79,7 +79,7 @@ switch:
   - platform: gpio
     pin:
       number: GPIO19
-      inverted: false
+      inverted: true
     name: "Pump 2"
     id: pump_2
     icon: mdi:water-pump
@@ -88,7 +88,7 @@ switch:
   - platform: gpio
     pin:
       number: GPIO23
-      inverted: false
+      inverted: true
     name: "Pump 3"
     id: pump_3
     icon: mdi:water-pump
@@ -97,7 +97,7 @@ switch:
   - platform: gpio
     pin:
       number: GPIO26
-      inverted: false
+      inverted: true
     name: "Pump 4"
     id: pump_4
     icon: mdi:water-pump
