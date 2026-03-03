@@ -1,0 +1,123 @@
+# ESPHome Configuration — Pump Controller
+# Hardware: ESP32 + 4-channel relay module
+#
+# Wiring (per relay channel):
+#   Relay module VCC → 5V  (most modules need 5V, not 3.3V)
+#   Relay module GND → GND
+#   Relay module IN1 → GPIO18  (Pump 1)
+#   Relay module IN2 → GPIO19  (Pump 2)
+#   Relay module IN3 → GPIO23  (Pump 3)
+#   Relay module IN4 → GPIO26  (Pump 4)
+#
+# ⚠  Active-LOW vs Active-HIGH relay modules:
+#    Most cheap 4-channel relay modules are ACTIVE-LOW:
+#      → relay fires when GPIO is LOW  → use  inverted: true  (current setting)
+#    Some optocoupler-isolated modules are ACTIVE-HIGH:
+#      → relay fires when GPIO is HIGH → change to  inverted: false
+#
+# ⚠  Safety — restore_mode: RESTORE_DEFAULT_OFF
+#    Pumps default to OFF after any reboot/power-cut.
+#    Change to ALWAYS_OFF if you never want them to auto-restore state.
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TO ADD MORE PUMPS — duplicate the block marked ▶ DUPLICATE ◀ below:
+#   Step 1 — Wire relay IN to a new GPIO (GPIO25, GPIO27, GPIO32 …)
+#   Step 2 — Copy the switch block
+#   Step 3 — Change: pin, name, id (all three must be unique)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+esphome:
+  name: pump-controller
+  friendly_name: Pump Controller
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# WiFi connectivity
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "ESPHome-Pumps-Fallback"
+    password: "esphome123"
+
+captive_portal:
+
+# Native Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+# Over-the-air firmware updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Logging
+logger:
+  level: INFO
+
+switch:
+
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │  ▶ DUPLICATE THIS BLOCK for each additional pump                   │
+  # │    Change: pin / name / id                                          │
+  # └─────────────────────────────────────────────────────────────────────┘
+  - platform: gpio
+    pin:
+      number: GPIO18      # ← relay IN1 wire
+      inverted: true      # ← active-LOW module; change to false for active-HIGH
+    name: "Pump 1"
+    id: pump_1            # ← unique id (pump_2, pump_3 …)
+    icon: mdi:water-pump
+    restore_mode: RESTORE_DEFAULT_OFF
+  # └─────────────────────────────────────────────────────────────────────┘
+
+  - platform: gpio
+    pin:
+      number: GPIO19
+      inverted: false
+    name: "Pump 2"
+    id: pump_2
+    icon: mdi:water-pump
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO23
+      inverted: false
+    name: "Pump 3"
+    id: pump_3
+    icon: mdi:water-pump
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO26
+      inverted: false
+    name: "Pump 4"
+    id: pump_4
+    icon: mdi:water-pump
+    restore_mode: RESTORE_DEFAULT_OFF
+
+# Node health
+sensor:
+  - platform: wifi_signal
+    name: "Pump Controller WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Pump Controller Uptime"
+
+button:
+  - platform: restart
+    name: "Pump Controller Restart"
+
+# Status LED
+status_led:
+  pin:
+    number: GPIO16
+    inverted: false
