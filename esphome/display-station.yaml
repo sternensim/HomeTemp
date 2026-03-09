@@ -101,7 +101,7 @@ display:
     spi_id: display_spi
     cs_pin: GPIO15
     dc_pin: GPIO2
-    rotation: 0
+    rotation: 90
     update_interval: never   # LVGL owns all redraws
     invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
@@ -225,8 +225,7 @@ button:
 
 lvgl:
   displays:
-    - id: my_display
-      rotation: 90
+    - my_display
   touchscreens:
     - my_touch
   default_font: montserrat_14
