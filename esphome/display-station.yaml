@@ -232,9 +232,10 @@ button:
 # Columns (x):  Room name=8  Temperature=95  Humidity=190  IAQ=252
 
 lvgl:
-  display_id: my_display
+  displays:
+    - my_display
   touchscreens:
-    - touchscreen_id: my_touch
+    - my_touch
   default_font: montserrat_14
 
   pages:
