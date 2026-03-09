@@ -105,7 +105,7 @@ display:
     cs_pin: GPIO15       # strapping pin warning is expected — fixed on this board
     dc_pin: GPIO2        # strapping pin warning is expected — fixed on this board
     # reset_pin not connected on this board — reset is handled at power-on
-    rotation: 270
+    rotation: 0
     id: my_display
     update_interval: never  # LVGL handles all redraws
     invert_colors: false    # required in ESPHome 2026.x; false is correct for ILI9341
@@ -236,6 +236,7 @@ lvgl:
     - my_display
   touchscreens:
     - my_touch
+  rotation: 90              # LVGL rotates the framebuffer — display stays native portrait
   default_font: montserrat_14
 
   pages:
@@ -265,7 +266,7 @@ lvgl:
               - label:
                   x: 8
                   y: 8
-                  text: "Léas Ecke"
+                  text: "Leas Ecke"
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
@@ -296,7 +297,7 @@ lvgl:
               - label:
                   x: 8
                   y: 8
-                  text: "Bedroom"
+                  text: "Simons Ecke"
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
