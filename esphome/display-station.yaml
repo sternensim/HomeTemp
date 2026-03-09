@@ -65,6 +65,8 @@ logger:
 
 spi:
   # Display SPI (HSPI)
+  # GPIO12/GPIO15/GPIO2 are strapping pins — warnings are expected and safe to ignore
+  # on the CYD board since these are fixed hardware traces, not external pullup/downs.
   - id: display_spi
     clk_pin: GPIO14
     mosi_pin: GPIO13
@@ -100,12 +102,14 @@ display:
   - platform: ili9xxx
     model: ILI9341
     spi_id: display_spi
-    cs_pin: GPIO15
-    dc_pin: GPIO2
+    cs_pin: GPIO15       # strapping pin warning is expected — fixed on this board
+    dc_pin: GPIO2        # strapping pin warning is expected — fixed on this board
     # reset_pin not connected on this board — reset is handled at power-on
     rotation: 90
     id: my_display
     update_interval: never  # LVGL handles all redraws
+    invert_colors: false    # required in ESPHome 2026.x; false is correct for ILI9341
+    # If colors look wrong (inverted/negative) after flashing, change to: true
 
 # ── XPT2046 resistive touch ───────────────────────────────────────────────────
 # Touch calibration: increase logger to DEBUG, run the device, and press the
@@ -133,55 +137,39 @@ touchscreen:
 # whenever the value changes. The display-station itself has no local sensors.
 
 sensor:
-  # ── Living Room (room-node-1) ──────────────────────────────────────────────
+  # ── Leas Ecke (room-node-1) ──────────────────────────────────────────────
   - platform: homeassistant
-    id: lr_temp
-    entity_id: sensor.room_node_1_living_room_temperature
+    id: lea_temp
+    entity_id: sensor.lea_schreibtisch_node_lea_schreibtisch_temperature
     on_value:
       - lvgl.label.update:
-          id: lbl_lr_temp
+          id: lbl_lea_temp
           text: !lambda 'return str_sprintf("%.1f°", x);'
 
   - platform: homeassistant
-    id: lr_humid
-    entity_id: sensor.room_node_1_living_room_humidity
+    id: lea_humid
+    entity_id: sensor.lea_schreibtisch_node_lea_schreibtisch_humidity
     on_value:
       - lvgl.label.update:
-          id: lbl_lr_humid
+          id: lbl_lea_humid
           text: !lambda 'return str_sprintf("%.0f%%", x);'
 
+  # ── Simons Ecke (room-node-2) ──────────────────────────────────────────────────
   - platform: homeassistant
-    id: lr_iaq
-    entity_id: sensor.room_node_1_living_room_iaq_score
+    id: sim_temp
+    entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_temperature
     on_value:
       - lvgl.label.update:
-          id: lbl_lr_iaq
-          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
-
-  # ── Bedroom (room-node-2) ──────────────────────────────────────────────────
-  - platform: homeassistant
-    id: br_temp
-    entity_id: sensor.room_node_2_bedroom_temperature
-    on_value:
-      - lvgl.label.update:
-          id: lbl_br_temp
+          id: lbl_sim_temp
           text: !lambda 'return str_sprintf("%.1f°", x);'
 
   - platform: homeassistant
-    id: br_humid
-    entity_id: sensor.room_node_2_bedroom_humidity
+    id: sim_humid
+    entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_humidity
     on_value:
       - lvgl.label.update:
-          id: lbl_br_humid
+          id: lbl_sim_humid
           text: !lambda 'return str_sprintf("%.0f%%", x);'
-
-  - platform: homeassistant
-    id: br_iaq
-    entity_id: sensor.room_node_2_bedroom_iaq_score
-    on_value:
-      - lvgl.label.update:
-          id: lbl_br_iaq
-          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
 
   # ── Office (room-node-3) ───────────────────────────────────────────────────
   - platform: homeassistant
@@ -261,7 +249,7 @@ lvgl:
             text_font: montserrat_14
             text_color: 0xb0c4de
 
-        # ── Living Room row ─────────────────────────────────────────────────
+        # ── Léas Ecke row ─────────────────────────────────────────────────
         - obj:
             x: 0
             y: 30
@@ -274,32 +262,25 @@ lvgl:
               - label:
                   x: 8
                   y: 8
-                  text: "Living Room"
+                  text: "Léas Ecke"
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
-                  id: lbl_lr_temp
+                  id: lbl_lea_temp
                   x: 95
                   y: 4
                   text: "--.-°"
                   text_font: montserrat_28
                   text_color: 0xff8a65
               - label:
-                  id: lbl_lr_humid
+                  id: lbl_lea_humid
                   x: 190
                   y: 16
                   text: "--%"
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
-              - label:
-                  id: lbl_lr_iaq
-                  x: 252
-                  y: 22
-                  text: "IAQ --"
-                  text_font: montserrat_14
-                  text_color: 0xa8d8a8
 
-        # ── Bedroom row ─────────────────────────────────────────────────────
+        # ── Simons Ecke row ─────────────────────────────────────────────────────
         - obj:
             x: 0
             y: 98
@@ -316,26 +297,19 @@ lvgl:
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
-                  id: lbl_br_temp
+                  id: lbl_sim_temp
                   x: 95
                   y: 4
                   text: "--.-°"
                   text_font: montserrat_28
                   text_color: 0xff8a65
               - label:
-                  id: lbl_br_humid
+                  id: lbl_sim_humid
                   x: 190
                   y: 16
                   text: "--%"
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
-              - label:
-                  id: lbl_br_iaq
-                  x: 252
-                  y: 22
-                  text: "IAQ --"
-                  text_font: montserrat_14
-                  text_color: 0xa8d8a8
 
         # ── Office row ──────────────────────────────────────────────────────
         - obj:
