@@ -102,6 +102,9 @@ display:
     cs_pin: GPIO15
     dc_pin: GPIO2
     rotation: 0
+    dimensions: "320x240"   # tells LVGL the canvas is landscape 320×240
+    transform:
+      swap_xy: true          # MADCTL MV bit — physically swaps rows/columns for landscape
     update_interval: never   # LVGL owns all redraws
     invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
