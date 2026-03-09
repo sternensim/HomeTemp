@@ -132,7 +132,7 @@ touchscreen:
       y_min: 200
       y_max: 3900
     transform:
-      swap_x_y: true          # needed when display is rotated 90°
+      swap_xy: true           # needed when display is rotated 90°
 
 # ── Home Assistant sensor subscriptions ──────────────────────────────────────
 # Each sensor subscribes to a HA entity and updates the matching LVGL label
