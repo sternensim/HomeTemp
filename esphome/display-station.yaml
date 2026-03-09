@@ -1,23 +1,23 @@
 # ESPHome Configuration — Central Display Station
-# Hardware: TENSTAR ESP32 2.8" LCD (ESP32-2432S028R / "Cheap Yellow Display")
+# Hardware: TENSTAR ESP32-2432S028R ("Cheap Yellow Display" / CYD)
 #   MCU:       ESP32-WROOM-32
 #   Display:   ILI9341  240×320 TFT, SPI (HSPI bus)
 #   Touch:     XPT2046  resistive, separate SPI bus
 #   Backlight: GPIO21 (PWM via LEDC, active HIGH)
-#   RGB LED:   R=GPIO4, G=GPIO16, B=GPIO17 (active-LOW — HIGH=off, LOW=on)
+#   RGB LED:   R=GPIO4, G=GPIO16, B=GPIO17 (active-LOW)
 #
-# Wiring (fixed on board — do not change):
+# Wiring (fixed on board):
 #   Display SPI:  CLK=GPIO14  MOSI=GPIO13  MISO=GPIO12
 #                 CS=GPIO15   DC=GPIO2     BL=GPIO21
 #   Touch SPI:    CLK=GPIO25  MOSI=GPIO32  MISO=GPIO39
 #                 CS=GPIO33   IRQ=GPIO36
 #
-# Purpose: Always-on central viewing station — shows live temp/humidity/IAQ
-#          for all 3 room nodes, fed from Home Assistant via native API.
+# ⚠ GPIO12/GPIO15/GPIO2 are strapping pins — ESPHome warnings are expected and safe.
+#   These are fixed PCB traces on the CYD board, not external resistors.
 #
-# ⚠  Before flashing: verify entity IDs in HA → Developer Tools → States
-#    Default pattern:  sensor.{esphome_node_name}_{sensor_name_snake_case}
-#    e.g. room-node-1 + "Living Room Temperature" → sensor.room_node_1_living_room_temperature
+# Entity IDs — verify in HA → Developer Tools → States before flashing.
+
+# ── Core ────────────────────────────────────────────────────────────────────
 
 esphome:
   name: display-station
@@ -60,25 +60,21 @@ ota:
 logger:
   level: INFO
 
-# ── SPI buses ────────────────────────────────────────────────────────────────
-# The CYD board uses two separate SPI buses — display and touch are NOT shared.
+# ── SPI buses ─────────────────────────────────────────────────────────────────
+# CYD uses two independent SPI buses — display and touch cannot be shared.
 
 spi:
-  # Display SPI (HSPI)
-  # GPIO12/GPIO15/GPIO2 are strapping pins — warnings are expected and safe to ignore
-  # on the CYD board since these are fixed hardware traces, not external pullup/downs.
   - id: display_spi
     clk_pin: GPIO14
     mosi_pin: GPIO13
     miso_pin: GPIO12
 
-  # Touch SPI (separate bus)
   - id: touch_spi
     clk_pin: GPIO25
     mosi_pin: GPIO32
     miso_pin: GPIO39
 
-# ── Backlight (PWM on GPIO21) ─────────────────────────────────────────────────
+# ── Backlight ─────────────────────────────────────────────────────────────────
 
 output:
   - platform: ledc
@@ -95,51 +91,44 @@ light:
     default_transition_length: 0s
 
 # ── ILI9341 display ───────────────────────────────────────────────────────────
-# Native portrait 240×320 — rotated 90° for 320×240 landscape layout.
-# If the image appears flipped, try rotation: 270.
+# Kept at rotation: 0 (native 240×320 portrait).
+# LVGL rotates the framebuffer to 320×240 landscape (see lvgl: rotation: 90).
 
 display:
   - platform: ili9xxx
     model: ILI9341
-    spi_id: display_spi
-    cs_pin: GPIO15       # strapping pin warning is expected — fixed on this board
-    dc_pin: GPIO2        # strapping pin warning is expected — fixed on this board
-    # reset_pin not connected on this board — reset is handled at power-on
-    rotation: 0
     id: my_display
-    update_interval: never  # LVGL handles all redraws
-    invert_colors: false    # required in ESPHome 2026.x; false is correct for ILI9341
-    # If colors look wrong (inverted/negative) after flashing, change to: true
+    spi_id: display_spi
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    rotation: 0
+    update_interval: never   # LVGL owns all redraws
+    invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
 # ── XPT2046 resistive touch ───────────────────────────────────────────────────
-# Touch calibration: increase logger to DEBUG, run the device, and press the
-# four corners of the screen. Note the raw x/y values logged and update
-# calibration_x_min/max and calibration_y_min/max accordingly.
-#
-# If touch axes are swapped after display rotation, flip swap_x_y.
+# Calibration: enable DEBUG logging, press all four corners, note raw x/y values.
 
 touchscreen:
   - platform: xpt2046
+    id: my_touch
     spi_id: touch_spi
     cs_pin: GPIO33
     interrupt_pin: GPIO36
-    id: my_touch
     update_interval: 50ms
     threshold: 400
-    calibration:              # ESPHome 2026.x — nested block replaces flat keys
+    calibration:
       x_min: 200
       x_max: 3900
       y_min: 200
       y_max: 3900
     transform:
-      swap_xy: true           # needed when display is rotated 90°
+      swap_xy: true   # required when display is rotated 90°
 
-# ── Home Assistant sensor subscriptions ──────────────────────────────────────
-# Each sensor subscribes to a HA entity and updates the matching LVGL label
-# whenever the value changes. The display-station itself has no local sensors.
+# ── Home Assistant sensors ────────────────────────────────────────────────────
 
 sensor:
-  # ── Leas Ecke (room-node-1) ──────────────────────────────────────────────
+
+  # Leas Ecke
   - platform: homeassistant
     id: lea_temp
     entity_id: sensor.lea_schreibtisch_node_lea_schreibtisch_temperature
@@ -156,7 +145,7 @@ sensor:
           id: lbl_lea_humid
           text: !lambda 'return str_sprintf("%.0f%%", x);'
 
-  # ── Simons Ecke (room-node-2) ──────────────────────────────────────────────────
+  # Simons Ecke
   - platform: homeassistant
     id: sim_temp
     entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_temperature
@@ -173,7 +162,7 @@ sensor:
           id: lbl_sim_humid
           text: !lambda 'return str_sprintf("%.0f%%", x);'
 
-  # ── Office (room-node-3) ───────────────────────────────────────────────────
+  # Office
   - platform: homeassistant
     id: of_temp
     entity_id: sensor.room_node_3_office_temperature
@@ -212,31 +201,33 @@ button:
     name: "Display Station Restart"
 
 # ── LVGL UI ───────────────────────────────────────────────────────────────────
-# Layout (320×240 landscape):
 #
-#  ┌──────────────────────────────────────────────────────┐  y=0
-#  │  Home Environment Monitor                            │  h=30  header
-#  ├──────────────┬───────────┬──────────┬───────────────-┤  y=30
-#  │ Living Room  │  24.5°    │   45%    │  IAQ 50        │
-#  │              │           │          │                 │  h=66
-#  ├──────────────┼───────────┼──────────┼────────────────┤  y=98  (2px gap)
-#  │ Bedroom      │  22.1°    │   52%    │  IAQ 45        │
-#  │              │           │          │                 │  h=66
-#  ├──────────────┼───────────┼──────────┼────────────────┤  y=166 (2px gap)
-#  │ Office       │  23.8°    │   48%    │  IAQ 62        │
-#  │              │           │          │                 │  h=60
-#  ├──────────────────────────────────────────────────────┤  y=228
-#  │  [HA connection status]                              │  h=12  footer
-#  └──────────────────────────────────────────────────────┘  y=240
+# Screen: 320×240 landscape (LVGL rotation: 90 on native 240×320 portrait)
 #
-# Columns (x):  Room name=8  Temperature=95  Humidity=190  IAQ=252
+#  ┌──────────────────────────────────────────┐  y=0
+#  │        Home Environment Monitor          │  h=30  header
+#  ├────────────┬──────────────┬──────────────┤  y=30
+#  │ Leas Ecke  │   24.5°      │    45%       │  h=66
+#  ├────────────┼──────────────┼──────────────┤  y=98
+#  │ Simons Eck │   22.1°      │    52%       │  h=66
+#  ├────────────┼──────────────┼──────┬───────┤  y=166
+#  │ Office     │   23.8°      │  48% │ IAQ62 │  h=60
+#  ├──────────────────────────────────────────┤  y=228
+#  │           [HA connection status]         │  h=12  footer
+#  └──────────────────────────────────────────┘  y=240
+#
+#  Column x positions:
+#    Room label : x=5,  w=83
+#    Temperature: x=88, w=110  (Office: w=90)
+#    Humidity   : x=198, w=82  (Office: x=178, w=80)
+#    IAQ        : x=258, w=62  (Office only)
 
 lvgl:
   displays:
     - my_display
   touchscreens:
     - my_touch
-  rotation: 90              # LVGL rotates the framebuffer — display stays native portrait
+  rotation: 90
   default_font: montserrat_14
 
   pages:
@@ -245,7 +236,7 @@ lvgl:
 
       widgets:
 
-        # ── Header (centered) ────────────────────────────────────────────────
+        # ── Header ───────────────────────────────────────────────────────────
         - label:
             align: top_mid
             y: 8
@@ -253,11 +244,7 @@ lvgl:
             text_font: montserrat_14
             text_color: 0xb0c4de
 
-        # Column layout (320px wide):
-        #   Room name │  Temperature  │  Humidity  │ (IAQ — Office only)
-        #   x=0 w=88  │  x=88 w=110   │ x=198 w=82 │  x=280 w=40
-
-        # ── Léas Ecke row ─────────────────────────────────────────────────
+        # ── Leas Ecke row ────────────────────────────────────────────────────
         - obj:
             x: 0
             y: 30
@@ -270,7 +257,7 @@ lvgl:
             widgets:
               - label:
                   x: 5
-                  y: 26              # vertically centered for montserrat_12 in 66px row
+                  y: 26
                   width: 83
                   text: "Leas Ecke"
                   text_font: montserrat_12
@@ -278,7 +265,7 @@ lvgl:
               - label:
                   id: lbl_lea_temp
                   x: 88
-                  y: 18             # vertically centered for montserrat_28 in 66px row
+                  y: 18
                   width: 110
                   text_align: center
                   text: "--.-°"
@@ -287,7 +274,7 @@ lvgl:
               - label:
                   id: lbl_lea_humid
                   x: 198
-                  y: 22             # vertically centered for montserrat_20 in 66px row
+                  y: 22
                   width: 82
                   text_align: center
                   text: "--%"
@@ -331,7 +318,7 @@ lvgl:
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
 
-        # ── Office row (has IAQ column) ──────────────────────────────────────
+        # ── Office row (+ IAQ column) ─────────────────────────────────────────
         - obj:
             x: 0
             y: 166
@@ -344,7 +331,7 @@ lvgl:
             widgets:
               - label:
                   x: 5
-                  y: 23             # vertically centered for montserrat_12 in 60px row
+                  y: 23
                   width: 83
                   text: "Office"
                   text_font: montserrat_12
@@ -352,7 +339,7 @@ lvgl:
               - label:
                   id: lbl_of_temp
                   x: 88
-                  y: 15             # vertically centered for montserrat_28 in 60px row
+                  y: 15
                   width: 90
                   text_align: center
                   text: "--.-°"
@@ -361,7 +348,7 @@ lvgl:
               - label:
                   id: lbl_of_humid
                   x: 178
-                  y: 19             # vertically centered for montserrat_20 in 60px row
+                  y: 19
                   width: 80
                   text_align: center
                   text: "--%"
@@ -377,7 +364,7 @@ lvgl:
                   text_font: montserrat_14
                   text_color: 0xa8d8a8
 
-        # ── Footer (centered) ────────────────────────────────────────────────
+        # ── Footer ───────────────────────────────────────────────────────────
         - label:
             id: lbl_footer
             x: 0
