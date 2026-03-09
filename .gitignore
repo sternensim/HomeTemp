@@ -1,4 +1,4 @@
 *.code-workspace
-
+.claude/
 esphome/secrets.yaml
 esphome/secrets.yaml

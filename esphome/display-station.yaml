@@ -1,7 +1,7 @@
 # ESPHome Configuration — Central Display Station
 # Hardware: TENSTAR ESP32-2432S028R ("Cheap Yellow Display" / CYD)
 #   MCU:       ESP32-WROOM-32
-#   Display:   ILI9341  240×320 TFT, SPI (HSPI bus)
+#   Display:   ILI9342  320×240 TFT (native landscape), SPI (HSPI bus)
 #   Touch:     XPT2046  resistive, separate SPI bus
 #   Backlight: GPIO21 (PWM via LEDC, active HIGH)
 #   RGB LED:   R=GPIO4, G=GPIO16, B=GPIO17 (active-LOW)
@@ -90,21 +90,18 @@ light:
     restore_mode: ALWAYS_ON
     default_transition_length: 0s
 
-# ── ILI9341 display ───────────────────────────────────────────────────────────
-# rotation: 90 → ILI9341 driver outputs 320×240 landscape directly.
-# LVGL needs no additional rotation.
+# ── ILI9342 display ───────────────────────────────────────────────────────────
+# ILI9342 is natively 320×240 landscape — no rotation needed.
+# TPM408-2.8 panels use ILI9342, not ILI9341.
 
 display:
   - platform: ili9xxx
-    model: ILI9341
+    model: ILI9342
     id: my_display
     spi_id: display_spi
     cs_pin: GPIO15
     dc_pin: GPIO2
     rotation: 0
-    dimensions: "320x240"   # tells LVGL the canvas is landscape 320×240
-    transform:
-      swap_xy: true          # MADCTL MV bit — physically swaps rows/columns for landscape
     update_interval: never   # LVGL owns all redraws
     invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
