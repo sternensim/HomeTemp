@@ -58,7 +58,7 @@ ota:
     password: !secret ota_password
 
 logger:
-  level: DEBUG
+  level: INFO
 
 # ── SPI buses ─────────────────────────────────────────────────────────────────
 # CYD uses two independent SPI buses — display and touch cannot be shared.
