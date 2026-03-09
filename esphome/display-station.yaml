@@ -202,7 +202,7 @@ button:
 
 # ── LVGL UI ───────────────────────────────────────────────────────────────────
 #
-# Screen: 320×240 landscape (LVGL rotation: 90 on native 240×320 portrait)
+# Screen: 320×240 landscape (LVGL rotation: 270 on native 240×320 portrait)
 #
 #  ┌──────────────────────────────────────────┐  y=0
 #  │        Home Environment Monitor          │  h=30  header
@@ -227,12 +227,13 @@ lvgl:
     - my_display
   touchscreens:
     - my_touch
-  rotation: 90
+  rotation: 270
   default_font: montserrat_14
 
   pages:
     - id: page_main
       bg_color: 0x0d1b2a
+      pad_all: 0
 
       widgets:
 
