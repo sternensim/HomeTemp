@@ -1,3 +1,4 @@
 *.code-workspace
 
 esphome/secrets.yaml
+esphome/secrets.yaml
