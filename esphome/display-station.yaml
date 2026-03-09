@@ -105,7 +105,7 @@ display:
     cs_pin: GPIO15       # strapping pin warning is expected — fixed on this board
     dc_pin: GPIO2        # strapping pin warning is expected — fixed on this board
     # reset_pin not connected on this board — reset is handled at power-on
-    rotation: 90
+    rotation: 270
     id: my_display
     update_interval: never  # LVGL handles all redraws
     invert_colors: false    # required in ESPHome 2026.x; false is correct for ILI9341
