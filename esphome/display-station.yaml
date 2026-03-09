@@ -91,8 +91,8 @@ light:
     default_transition_length: 0s
 
 # ── ILI9341 display ───────────────────────────────────────────────────────────
-# Kept at rotation: 0 (native 240×320 portrait).
-# LVGL rotates the framebuffer to 320×240 landscape (see lvgl: rotation: 90).
+# rotation: 90 → ILI9341 driver outputs 320×240 landscape directly.
+# LVGL needs no additional rotation.
 
 display:
   - platform: ili9xxx
@@ -101,7 +101,7 @@ display:
     spi_id: display_spi
     cs_pin: GPIO15
     dc_pin: GPIO2
-    rotation: 0
+    rotation: 90
     update_interval: never   # LVGL owns all redraws
     invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
@@ -202,7 +202,7 @@ button:
 
 # ── LVGL UI ───────────────────────────────────────────────────────────────────
 #
-# Screen: 320×240 landscape (LVGL rotation: 270 on native 240×320 portrait)
+# Screen: 320×240 landscape (display rotation: 90 — ILI9341 driver handles orientation)
 #
 #  ┌──────────────────────────────────────────┐  y=0
 #  │        Home Environment Monitor          │  h=30  header
@@ -227,7 +227,6 @@ lvgl:
     - my_display
   touchscreens:
     - my_touch
-  rotation: 270
   default_font: montserrat_14
 
   pages:
