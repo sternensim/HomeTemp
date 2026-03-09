@@ -102,6 +102,9 @@ display:
     cs_pin: GPIO15
     dc_pin: GPIO2
     rotation: 0
+    dimensions:
+      width: 320
+      height: 240
     update_interval: never   # LVGL owns all redraws
     invert_colors: false     # correct for ILI9341; change to true if colors look negative
 
