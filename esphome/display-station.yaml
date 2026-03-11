@@ -159,6 +159,10 @@ sensor:
     id: weather_data_wspeed
     entity_id: weather.forecast_home
     attribute: wind_speed
+    on_value:
+      - lvgl.label.update:
+          id: lbl_weather_data_wspeed
+          text: !lambda 'return str_sprintf("%.1f°", x);'
   # Weahter Data Wind direction
   - platform: homeassistant
     id: weather_data_wdirection
@@ -402,17 +406,17 @@ lvgl:
                   text: "Wetter"
                   text_font: montserrat_12
                   text_color: 0x90caf9
+              # - label:
+              #     id: simon_temp_out
+              #     x: 88
+              #     y: 15
+              #     width: 90
+              #     text_align: center
+              #     text: "--.-°"
+              #     text_font: montserrat_28
+              #     text_color: 0xff8a65
               - label:
-                  id: simon_temp_out
-                  x: 88
-                  y: 15
-                  width: 90
-                  text_align: center
-                  text: "--.-°"
-                  text_font: montserrat_28
-                  text_color: 0xff8a65
-              - label:
-                  id: weather_data_wspeed
+                  id: lbl_weather_data_wspeed
                   x: 178
                   y: 19
                   width: 80
@@ -420,14 +424,14 @@ lvgl:
                   text: "--km/h"
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
-              - label:
-                  id: weather_data_wdirection
-                  x: 258
-                  y: 23
-                  width: 62
-                  text_align: center
-                  text: "---.-°"
-                  text_font: montserrat_14
-                  text_color: 0xa8d8a8
+              # - label:
+              #     id: weather_data_wdirection
+              #     x: 258
+              #     y: 23
+              #     width: 62
+              #     text_align: center
+              #     text: "---.-°"
+              #     text_font: montserrat_14
+              #     text_color: 0xa8d8a8
 
         # ── Footer ───────────────────────────────────────────────────────────
