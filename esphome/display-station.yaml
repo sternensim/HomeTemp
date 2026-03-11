@@ -247,12 +247,12 @@ lvgl:
             y: 7
             text_align: right
             text_color: 0xFFFFFF
-          -label:
-            align: top_mid
-            y: 8
-            text: "Home Environment Monitor"
-            text_font: montserrat_14
-            text_color: 0xb0c4de
+          # -label:
+          #   align: top_mid
+          #   y: 8
+          #   text: "Home Environment Monitor"
+          #   text_font: montserrat_14
+          #   text_color: 0xb0c4de
 
         # ── Leas Ecke row ────────────────────────────────────────────────────
         - obj:
