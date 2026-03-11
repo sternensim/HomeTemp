@@ -45,10 +45,7 @@ api:
   on_client_connected:
     - lvgl.widget.show: lbl_hastatus
   on_client_disconnected:
-    - lvgl.label.update:
-        id: lbl_footer
-        text: "Disconnected from Home Assistant"
-        text_color: 0xef5350
+    - lvgl.widget.hide: lbl_hastatus
 
 ota:
   - platform: esphome
