@@ -165,6 +165,11 @@ sensor:
     entity_id: weather.forecast_home
     attribute: wind_bearing
 
+  # Temperature outside simons Fenster
+  - platform: homeassistant
+    id: simon_temp_out
+    entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_probe_temperature
+
   # Leas Ecke
   - platform: homeassistant
     id: lea_temp
@@ -398,7 +403,7 @@ lvgl:
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
-                  id: lbl_of_temp
+                  id: simon_temp_out
                   x: 88
                   y: 15
                   width: 90
@@ -407,21 +412,21 @@ lvgl:
                   text_font: montserrat_28
                   text_color: 0xff8a65
               - label:
-                  id: lbl_of_humid
+                  id: weather_data_wspeed
                   x: 178
                   y: 19
                   width: 80
                   text_align: center
-                  text: "--%"
+                  text: "--km/h"
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
               - label:
-                  id: lbl_of_iaq
+                  id: weather_data_wdirection
                   x: 258
                   y: 23
                   width: 62
                   text_align: center
-                  text: "IAQ --"
+                  text: "---.-°"
                   text_font: montserrat_14
                   text_color: 0xa8d8a8
 
