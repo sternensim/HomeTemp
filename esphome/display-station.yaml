@@ -208,30 +208,30 @@ sensor:
           id: lbl_sim_humid
           text: !lambda 'return str_sprintf("%.0f%%", x);'
 
-  # Office
-  - platform: homeassistant
-    id: of_temp
-    entity_id: sensor.room_node_3_office_temperature
-    on_value:
-      - lvgl.label.update:
-          id: lbl_of_temp
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+  # # Office
+  # - platform: homeassistant
+  #   id: of_temp
+  #   entity_id: sensor.room_node_3_office_temperature
+  #   on_value:
+  #     - lvgl.label.update:
+  #         id: lbl_of_temp
+  #         text: !lambda 'return str_sprintf("%.1f°", x);'
 
-  - platform: homeassistant
-    id: of_humid
-    entity_id: sensor.room_node_3_office_humidity
-    on_value:
-      - lvgl.label.update:
-          id: lbl_of_humid
-          text: !lambda 'return str_sprintf("%.0f%%", x);'
+  # - platform: homeassistant
+  #   id: of_humid
+  #   entity_id: sensor.room_node_3_office_humidity
+  #   on_value:
+  #     - lvgl.label.update:
+  #         id: lbl_of_humid
+  #         text: !lambda 'return str_sprintf("%.0f%%", x);'
 
-  - platform: homeassistant
-    id: of_iaq
-    entity_id: sensor.room_node_3_office_iaq_score
-    on_value:
-      - lvgl.label.update:
-          id: lbl_of_iaq
-          text: !lambda 'return str_sprintf("IAQ %.0f", x);'
+  # - platform: homeassistant
+  #   id: of_iaq
+  #   entity_id: sensor.room_node_3_office_iaq_score
+  #   on_value:
+  #     - lvgl.label.update:
+  #         id: lbl_of_iaq
+  #         text: !lambda 'return str_sprintf("IAQ %.0f", x);'
 
   # Station health
   - platform: wifi_signal
