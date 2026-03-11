@@ -278,13 +278,13 @@ lvgl:
             text: "--:--"
             align: top_mid
             text_color: 0xFFFFFF
-            text_font: clock_font
+            width: 83
         - label:
             id: date_label
             text: "--.--.----"
             align: top_left
             text_color: 0xFFFFFF
-            text_font: clock_font
+            width: 83
             
           # -label:
           #   align: top_mid
