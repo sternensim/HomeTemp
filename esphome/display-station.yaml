@@ -356,7 +356,7 @@ lvgl:
                   y: 18
                   width: 110
                   text_align: center
-                  text: "--.-°"
+                  text: "--°"
                   text_font: montserrat_28
                   text_color: 0xff8a65
               - label:
@@ -394,7 +394,7 @@ lvgl:
                   y: 18
                   width: 110
                   text_align: center
-                  text: "--.-°"
+                  text: "--°"
                   text_font: montserrat_28
                   text_color: 0xff8a65
               - label:
