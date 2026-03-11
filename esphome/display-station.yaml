@@ -200,7 +200,7 @@ sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_lea_temp
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+          text: !lambda 'return str_sprintf("%.0f°", x);'
 
   - platform: homeassistant
     id: lea_humid
@@ -217,7 +217,7 @@ sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_sim_temp
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+          text: !lambda 'return str_sprintf("%.0f°", x);'
 
   - platform: homeassistant
     id: sim_humid
