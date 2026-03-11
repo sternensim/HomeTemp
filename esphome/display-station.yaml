@@ -271,11 +271,13 @@ lvgl:
             text: "--:--"
             align: top_mid
             text_color: 0xFFFFFF
+            text_font: "gfonts://Roboto Mono"
         - label:
             id: date_label
             text: "--.--.----"
             align: top_left
             text_color: 0xFFFFFF
+            text_font: "gfonts://Roboto Mono"
           # -label:
           #   align: top_mid
           #   y: 8
