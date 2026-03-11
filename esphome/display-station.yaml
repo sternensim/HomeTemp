@@ -188,6 +188,10 @@ sensor:
   - platform: homeassistant
     id: simon_temp_out
     entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_probe_temperature
+    on_value:
+      - lvgl.label.update:
+          id: lbl_sim_temp_out
+          text: !lambda 'return str_sprintf("%.1f°", x);'
 
   # Leas Ecke
   - platform: homeassistant
@@ -421,15 +425,15 @@ lvgl:
                   text: "Wetter"
                   text_font: montserrat_12
                   text_color: 0x90caf9
-              # - label:
-              #     id: simon_temp_out
-              #     x: 88
-              #     y: 15
-              #     width: 90
-              #     text_align: center
-              #     text: "--.-°"
-              #     text_font: montserrat_28
-              #     text_color: 0xff8a65
+              - label:
+                  id: lbl_sim_temp_out
+                  x: 88
+                  y: 15
+                  width: 90
+                  text_align: center
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xff8a65
               - label:
                   id: lbl_weather_data_wspeed
                   x: 178
