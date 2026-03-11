@@ -171,8 +171,8 @@ sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_weather_data_wdirection
-          text: !lambda: |-
-            static const char *dirs[] = {
+          text: !lambda
+            'static const char *dirs[] = {
               "N","NNE","NE","ENE",
               "E","ESE","SE","SSE",
               "S","SSW","SW","WSW",
@@ -181,7 +181,7 @@ sensor:
 
             float deg = id(bearing_sensor).state;
             int index = int((deg + 11.25) / 22.5) % 16;
-            return {dirs[index]};
+            return {dirs[index]};'
 
   # Temperature outside simons Fenster
   - platform: homeassistant
