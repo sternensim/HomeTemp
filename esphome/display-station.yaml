@@ -126,6 +126,28 @@ touchscreen:
 
 # ── Home Assistant sensors ────────────────────────────────────────────────────
 
+
+
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      - seconds: /1
+        then:
+          - lambda: |-
+              auto now = id(sntp_time).now();
+              if (!now.is_valid()) return;
+
+              static char timebuf[16];
+              static char datebuf[24];
+
+              now.strftime(timebuf, sizeof(timebuf), "%H:%M:%S");
+              now.strftime(datebuf, sizeof(datebuf), "%A %d.%m.%Y");
+
+              lv_label_set_text(id(time_label), timebuf);
+              lv_label_set_text(id(date_label), datebuf);
+
+
 sensor:
 
   # Leas Ecke
@@ -247,6 +269,14 @@ lvgl:
             y: 7
             text_align: right
             text_color: 0xFFFFFF
+        - label:
+            id: time_label
+            text: "--:--"
+            align: top_mid
+        - label:
+            id: date_label
+            text: "--.--.----"
+            align: top_left
           # -label:
           #   align: top_mid
           #   y: 8
@@ -376,12 +406,3 @@ lvgl:
                   text_color: 0xa8d8a8
 
         # ── Footer ───────────────────────────────────────────────────────────
-        - label:
-            id: lbl_footer
-            x: 0
-            y: 228
-            width: 320
-            text_align: center
-            text: "Connecting to Home Assistant..."
-            text_font: montserrat_10
-            text_color: 0x607d8b
