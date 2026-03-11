@@ -132,7 +132,7 @@ time:
       - seconds: /1
         then:
           - lambda: |-
-              auto now = id(sntp_time).now();
+              auto now = id(homeassistant_time).now();
               if (!now.is_valid()) return;
 
               static char timebuf[16];
