@@ -43,10 +43,7 @@ api:
   encryption:
     key: !secret api_key
   on_client_connected:
-    - lvgl.label.update:
-        id: lbl_footer
-        text: "Connected to Home Assistant"
-        text_color: 0x66bb6a
+    - lvgl.widget.show: lbl_hastatus
   on_client_disconnected:
     - lvgl.label.update:
         id: lbl_footer
@@ -241,7 +238,16 @@ lvgl:
       widgets:
 
         # ── Header ───────────────────────────────────────────────────────────
-        - label:
+        - label:     
+            text: "\uF1EB"
+            id: lbl_hastatus
+            hidden: true
+            align: top_right
+            x: -2
+            y: 7
+            text_align: right
+            text_color: 0xFFFFFF
+          -label:
             align: top_mid
             y: 8
             text: "Home Environment Monitor"
@@ -323,7 +329,7 @@ lvgl:
                   text_font: montserrat_20
                   text_color: 0x4fc3f7
 
-        # ── Office row (+ IAQ column) ─────────────────────────────────────────
+        # ── Wetter row (+ IAQ column) ─────────────────────────────────────────
         - obj:
             x: 0
             y: 166
@@ -338,7 +344,7 @@ lvgl:
                   x: 5
                   y: 23
                   width: 83
-                  text: "Office"
+                  text: "Wetter"
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
