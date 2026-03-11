@@ -255,7 +255,7 @@ lvgl:
       pad_all: 0
 
       widgets:
-
+    
         # ── Header ───────────────────────────────────────────────────────────
         - label:     
             text: "\uF1EB"
@@ -270,10 +270,12 @@ lvgl:
             id: time_label
             text: "--:--"
             align: top_mid
+            text_color: 0xFFFFFF
         - label:
             id: date_label
             text: "--.--.----"
             align: top_left
+            text_color: 0xFFFFFF
           # -label:
           #   align: top_mid
           #   y: 8
