@@ -139,7 +139,7 @@ time:
               static char datebuf[24];
 
               now.strftime(timebuf, sizeof(timebuf), "%H:%M:%S");
-              now.strftime(datebuf, sizeof(datebuf), "%A %d.%m.%Y");
+              now.strftime(datebuf, sizeof(datebuf), "%d.%m.%Y");
 
               lv_label_set_text(id(time_label), timebuf);
               lv_label_set_text(id(date_label), datebuf);
