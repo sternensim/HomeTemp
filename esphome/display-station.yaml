@@ -125,6 +125,9 @@ touchscreen:
 font:
   - file: "gfonts://Roboto Mono"
     id: clock_font
+    size: 16
+
+    
 # ── Home Assistant sensors ────────────────────────────────────────────────────
 
 
@@ -282,6 +285,7 @@ lvgl:
             align: top_left
             text_color: 0xFFFFFF
             text_font: clock_font
+            
           # -label:
           #   align: top_mid
           #   y: 8
