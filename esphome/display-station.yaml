@@ -179,7 +179,7 @@ sensor:
               "W","WNW","NW","NNW"
             };
 
-            float deg = id(bearing_sensor).state;
+            float deg = id(weather_data_wdirection).state;
             int index = int((deg + 11.25) / 22.5) % 16;
             return {dirs[index]};'
 
