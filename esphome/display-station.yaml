@@ -162,7 +162,7 @@ sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_weather_data_wspeed
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+          text: !lambda 'return str_sprintf("%.1fkm/h", x);'
   # Weahter Data Wind direction
   - platform: homeassistant
     id: weather_data_wdirection
