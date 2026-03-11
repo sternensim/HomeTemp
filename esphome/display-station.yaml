@@ -154,6 +154,17 @@ time:
 
 sensor:
 
+  # Weather Data Wind Speed
+  - platform: homeassistant
+    id: weather_data_wspeed
+    entity_id: weather.forecast_home
+    attribute: wind_speed
+  # Weahter Data Wind direction
+  - platform: homeassistant
+    id: weather_data_wdirection
+    entity_id: weather.forecast_home
+    attribute: wind_bearing
+
   # Leas Ecke
   - platform: homeassistant
     id: lea_temp
