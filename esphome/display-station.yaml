@@ -441,7 +441,7 @@ lvgl:
               - label:
                   id: lbl_weather_data_wdirection
                   x: 258
-                  y: 23
+                  y: 19
                   width: 62
                   text_align: center
                   text: "---"
