@@ -1,0 +1,72 @@
+esphome:
+  name: test-display
+  friendly_name: Test Display
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# ── Connectivity ─────────────────────────────────────────────────────────────
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Display-Station-AP"
+    password: "esphome123"
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+  on_client_connected:
+    - globals.set:
+        id: ha_connected
+        value: "true"
+  on_client_disconnected:
+    - globals.set:
+        id: ha_connected
+        value: "false"
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: INFO
+
+# ── Global state ──────────────────────────────────────────────────────────────
+
+globals:
+  - id: ha_connected
+    type: bool
+    initial_value: "false"
+
+# ── I2C (SSD1306) ─────────────────────────────────────────────────────────────
+
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+
+# ── Display ───────────────────────────────────────────────────────────────────
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 1s
+    lambda: |-
+      if (id(ha_connected)) {
+        it.print(0, 0, id(font_main), "HA: Connected");
+      } else {
+        it.print(0, 0, id(font_main), "HA: Disconnected");
+      }
+
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_main
+    size: 12
