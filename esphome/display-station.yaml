@@ -189,10 +189,10 @@ sensor:
     id: weather_data_temp
     entity_id: weather.forecast_home
     attribute: temperature
-    on_value:
-      - lvgl.label.update:
-          id: lbl_weather_data_temp
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+    # on_value:
+    #   - lvgl.label.update:
+    #       id: lbl_weather_data_temp
+    #       text: !lambda 'return str_sprintf("%.1f°", x);'
 
   # Temperature outside simons Fenster
   - platform: homeassistant
