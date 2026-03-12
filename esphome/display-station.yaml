@@ -183,7 +183,8 @@ sensor:
             float deg = id(weather_data_wdirection).state;
             int index = int((deg + 11.25) / 22.5) % 16;
             return {dirs[index]};'
-
+            
+  # Weather Data Temp
   - platform: homeassistant
     id: weather_data_temp
     entity_id: weather.forecast_home
