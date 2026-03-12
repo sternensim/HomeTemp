@@ -189,19 +189,33 @@ sensor:
     id: weather_data_temp
     entity_id: weather.forecast_home
     attribute: temperature
-    # on_value:
-    #   - lvgl.label.update:
-    #       id: lbl_weather_data_temp
-    #       text: !lambda 'return str_sprintf("%.1f°", x);'
+    on_value:
+      - if:
+          condition:
+            lambda: 'return isnan(id(simon_temp_out).state);'
+          then:
+            - lvgl.label.update:
+                id: lbl_sim_temp_out
+                text: !lambda |-
+                  if (isnan(x)) return std::string("--.-°");
+                  char buf[16];
+                  snprintf(buf, sizeof(buf), "%.1f°", x);
+                  return std::string(buf);
 
   # Temperature outside simons Fenster
   - platform: homeassistant
     id: simon_temp_out
     entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_probe_temperature
-    # on_value:
-    #   - lvgl.label.update:
-    #       id: lbl_sim_temp_out
-    #       text: !lambda 'return str_sprintf("%.1f°", x);'
+    on_value:
+      - lvgl.label.update:
+          id: lbl_sim_temp_out
+          text: !lambda |-
+            float v = x;
+            if (isnan(v)) v = id(weather_data_temp).state;
+            if (isnan(v)) return std::string("--.-°");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f°", v);
+            return std::string(buf);
 
   # Leas Ecke
   - platform: homeassistant
@@ -443,20 +457,7 @@ lvgl:
                   text_align: center
                   text_font: montserrat_28
                   text_color: 0xff8a65
-                  text: !lambda |-
-                    float v = id(simon_temp_out).state;
-
-                    if (isnan(v)) {
-                      v = id(weather_data_temp).state;
-                    }
-
-                    if (isnan(v)) {
-                      return std::string("--.-°");
-                    }
-
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), "%.1f°", v);
-                    return std::string(buf);
+                  text: "--.-°"
               - label:
                   id: lbl_weather_data_wspeed
                   x: 178
