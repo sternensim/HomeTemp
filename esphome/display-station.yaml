@@ -444,7 +444,7 @@ lvgl:
                   text_font: montserrat_28
                   text_color: 0xff8a65
                   text: !lambda |-
-                    float v = id(sim_temp_out).state;
+                    float v = id(simon_temp_out).state;
 
                     if (isnan(v)) {
                       v = id(weather_data_temp).state;
