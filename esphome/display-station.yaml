@@ -198,10 +198,10 @@ sensor:
   - platform: homeassistant
     id: simon_temp_out
     entity_id: sensor.simon_schreibtisch_node_simon_schreibtisch_probe_temperature
-    on_value:
-      - lvgl.label.update:
-          id: lbl_sim_temp_out
-          text: !lambda 'return str_sprintf("%.1f°", x);'
+    # on_value:
+    #   - lvgl.label.update:
+    #       id: lbl_sim_temp_out
+    #       text: !lambda 'return str_sprintf("%.1f°", x);'
 
   # Leas Ecke
   - platform: homeassistant
