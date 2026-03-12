@@ -1,0 +1,28 @@
+# mediamtx configuration for bird-mic RTSP relay
+# The ESP32 (ESPHome rtp_sender component) publishes here via RTSP ANNOUNCE.
+# BirdNET-Go subscribes as an RTSP reader: rtsp://mediamtx:8554/bird
+# Full docs: https://github.com/bluenviron/mediamtx
+
+logLevel: info
+
+# RTSP server — only TCP needed; UDP RTSP disabled to reduce attack surface
+rtspAddress: :8554
+rtspEncryption: no
+rtspAuthMethods: []
+
+# Stream paths
+paths:
+  bird:
+    # 'publisher' = wait for a client to ANNOUNCE + RECORD the stream.
+    # The ESPHome rtp_sender component does exactly this on boot.
+    source: publisher
+
+    # Keep the path active even when no publisher is connected so BirdNET-Go
+    # can connect early without getting a 404.
+    sourceOnDemand: no
+
+    # No auth required (internal Docker network only)
+    publishUser:
+    publishPass:
+    readUser:
+    readPass:

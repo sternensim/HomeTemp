@@ -51,10 +51,45 @@ services:
       retries: 3
       start_period: 40s
 
+  # mediamtx — lightweight RTSP broker
+  # Receives raw RTP audio from the ESP32 bird microphone and re-exposes
+  # it as an RTSP stream that BirdNET-Go can subscribe to.
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    ports:
+      - "8554:8554"   # RTSP — ESP32 publishes here, BirdNET-Go reads here
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - homeautomation
+
+  # BirdNET-Go — real-time bird species identification
+  # Reads the RTSP stream from mediamtx and analyses audio with BirdNET.
+  # Web UI: http://<host-ip>:8080
+  birdnet-go:
+    image: ghcr.io/tphakala/birdnet-go:latest
+    container_name: birdnet-go
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # BirdNET-Go web UI
+    volumes:
+      - ./birdnet/config:/config
+      - ./birdnet/clips:/clips
+    environment:
+      - TZ=Europe/Berlin
+    networks:
+      - homeautomation
+    depends_on:
+      - mediamtx
+
 # Quick start commands:
 # docker-compose up -d              → Start all services
 # docker-compose down               → Stop all services
 # docker-compose logs -f            → View logs (all services)
 # docker-compose logs -f homeassistant → View HA logs only
 # docker-compose logs -f esphome    → View ESPHome logs only
+# docker-compose logs -f birdnet-go → View BirdNET-Go logs
+# docker-compose logs -f mediamtx   → View RTSP broker logs
 # docker-compose ps                 → Check service status
