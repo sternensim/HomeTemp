@@ -120,6 +120,7 @@ touchscreen:
       y_max: 3900
     transform:
       swap_xy: true   # required when display is rotated 90°
+      mirror_y: true  # fix: touch Y axis was inverted
 
 
 font:
