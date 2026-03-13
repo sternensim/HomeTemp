@@ -339,11 +339,11 @@ sensor:
 
   - platform: homeassistant
     id: tomorrow_precip
-    entity_id: sensor.tomorrow_precipitation_probability
+    entity_id: sensor.tomorrow_precipitation_hight
     on_value:
       - lvgl.label.update:
           id: lbl_tomorrow_precip
-          text: !lambda 'return str_sprintf("%.0f%%", x);'
+          text: !lambda 'return str_sprintf("%.0fmm", x);'
 
   - platform: homeassistant
     id: tomorrow_wind
@@ -352,6 +352,20 @@ sensor:
       - lvgl.label.update:
           id: lbl_tomorrow_wind
           text: !lambda 'return str_sprintf("%.0fkm/h", x);'
+
+  - platform: homeassistant
+    id: tomorrow_wind_bearing
+    entity_id: sensor.tomorrow_wind_bearing
+    on_value:
+      - lambda: |-
+          static const char *dirs[] = {
+            "N","NNO","NO","ONO",
+            "O","OSO","SO","SSO",
+            "S","SSW","SW","WSW",
+            "W","WNW","NW","NNW"
+          };
+          int index = (int)((x + 11.25f) / 22.5f) % 16;
+          lv_label_set_text(id(lbl_tomorrow_wind_dir), dirs[index]);
 
   # Station health
   - platform: wifi_signal
@@ -659,7 +673,7 @@ lvgl:
             x: 0
             y: 142
             width: 320
-            height: 50
+            height: 44
             bg_color: 0x0d1b2a
             border_width: 0
             radius: 0
@@ -694,42 +708,58 @@ lvgl:
                   text_font: montserrat_28
                   text_color: 0x4fc3f7
 
-        # ── Precip / Wind ────────────────────────────────────────────────────
+        # ── Precip / Wind+Direction ───────────────────────────────────────────
         - obj:
             x: 0
-            y: 192
+            y: 186
             width: 320
-            height: 36
+            height: 42
             bg_color: 0x0d1b2a
             border_width: 0
             radius: 0
             pad_all: 0
             widgets:
+              # Precipitation
               - label:
                   x: 10
-                  y: 10
+                  y: 13
                   text: "Regen"
                   text_font: montserrat_12
                   text_color: 0x90caf9
               - label:
                   id: lbl_tomorrow_precip
-                  x: 60
-                  y: 8
+                  x: 58
+                  y: 11
                   width: 70
-                  text: "--%"
+                  text: "--mm"
                   text_font: montserrat_16
                   text_color: 0x4fc3f7
-              - label:
-                  x: 160
-                  y: 10
-                  text: "Wind"
-                  text_font: montserrat_12
-                  text_color: 0x90caf9
+
+              # Compass rose circle — direction text inside
+              - obj:
+                  x: 148
+                  y: 4
+                  width: 34
+                  height: 34
+                  radius: 17
+                  bg_color: 0x1b3a5c
+                  border_width: 2
+                  border_color: 0x4a6b8a
+                  pad_all: 0
+                  widgets:
+                    - label:
+                        id: lbl_tomorrow_wind_dir
+                        align: center
+                        text: "--"
+                        text_font: montserrat_12
+                        text_color: 0xa8d8a8
+
+              # Wind speed next to compass
               - label:
                   id: lbl_tomorrow_wind
-                  x: 206
-                  y: 8
-                  width: 104
+                  x: 188
+                  y: 13
+                  width: 122
                   text: "--km/h"
                   text_font: montserrat_16
                   text_color: 0xa8d8a8
