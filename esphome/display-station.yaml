@@ -339,11 +339,11 @@ sensor:
 
   - platform: homeassistant
     id: tomorrow_precip
-    entity_id: sensor.tomorrow_precipitation_hight
+    entity_id: sensor.tomorrow_precipitation
     on_value:
       - lvgl.label.update:
           id: lbl_tomorrow_precip
-          text: !lambda 'return str_sprintf("%.0fmm", x);'
+          text: !lambda 'return str_sprintf("%.1fmm", x);'
 
   - platform: homeassistant
     id: tomorrow_wind
@@ -357,15 +357,19 @@ sensor:
     id: tomorrow_wind_bearing
     entity_id: sensor.tomorrow_wind_bearing
     on_value:
-      - lambda: |-
-          static const char *dirs[] = {
-            "N","NNO","NO","ONO",
-            "O","OSO","SO","SSO",
-            "S","SSW","SW","WSW",
-            "W","WNW","NW","NNW"
-          };
-          int index = (int)((x + 11.25f) / 22.5f) % 16;
-          lv_label_set_text(id(lbl_tomorrow_wind_dir), dirs[index]);
+      - lvgl.label.update:
+          id: lbl_tomorrow_wind_dir
+          text: !lambda
+            'static const char *dirs[] = {
+              "N","NNE","NE","ENE",
+              "E","ESE","SE","SSE",
+              "S","SSW","SW","WSW",
+              "W","WNW","NW","NNW"
+            };
+
+            float deg = id(lbl_tomorrow_wind_dir).state;
+            int index = int((deg + 11.25) / 22.5) % 16;
+            return {dirs[index]};
 
   # Station health
   - platform: wifi_signal
