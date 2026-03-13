@@ -359,7 +359,7 @@ sensor:
     on_value:
       - lvgl.label.update:
           id: lbl_weather_data_wdirection
-          text: !lambda |-
+          text: !lambda
             'static const char *dirs[] = {
               "N","NNE","NE","ENE",
               "E","ESE","SE","SSE",
