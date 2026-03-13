@@ -369,7 +369,7 @@ sensor:
 
             float deg = id(lbl_tomorrow_wind_dir).state;
             int index = int((deg + 11.25) / 22.5) % 16;
-            return {dirs[index]};
+            return {dirs[index]};'
 
   # Station health
   - platform: wifi_signal
