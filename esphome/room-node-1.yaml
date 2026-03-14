@@ -86,6 +86,67 @@ sensor:
       id: voc_eq
       accuracy_decimals: 1
 
+  # LiPo temperature — NTC thermistor on GPIO35
+  # Wiring: 3.3V → 10kΩ fixed → GPIO35 → 10kΩ NTC → GND
+  - platform: adc
+    pin: GPIO35
+    id: battery_temp_adc
+    update_interval: 60s
+    attenuation: 11db
+    internal: true
+
+  - platform: resistance
+    id: battery_temp_resistance
+    sensor: battery_temp_adc
+    configuration: DOWNSTREAM       # NTC is between GPIO35 and GND
+    resistor: 10kΩ
+    reference_voltage: 3.3V
+    internal: true
+
+  - platform: ntc
+    sensor: battery_temp_resistance
+    name: "Living Room Battery Temperature"
+    id: battery_temp
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    calibration:
+      b_constant: 3950              # adjust if your NTC datasheet says otherwise
+      reference_temperature: 25°C
+      reference_resistance: 10kΩ
+
+  # Battery voltage via voltage divider on GPIO34 (100kΩ + 100kΩ, multiply x2)
+  - platform: adc
+    pin: GPIO34
+    name: "Living Room Battery Voltage"
+    id: battery_voltage
+    update_interval: 60s
+    attenuation: 11db
+    filters:
+      - multiply: 2.0        # compensate for 1:1 voltage divider
+      - median:
+          window_size: 5
+          send_every: 5
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    state_class: measurement
+
+  # Battery percentage derived from voltage (3.0V=0%, 4.2V=100%)
+  - platform: template
+    name: "Living Room Battery"
+    id: battery_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    state_class: measurement
+    lambda: |-
+      float v = id(battery_voltage).state;
+      if (v >= 4.2) return 100.0;
+      if (v <= 3.0) return 0.0;
+      return (v - 3.0) / 1.2 * 100.0;
+    update_interval: 60s
+
   # WiFi signal strength
   - platform: wifi_signal
     name: "Living Room Node WiFi Signal"
@@ -124,8 +185,9 @@ display:
     update_interval: 5s
     brightness: 100%
     lambda: |-
-      // Title
+      // Title + battery %
       it.printf(0, 0, id(font_medium), "Living Room");
+      it.printf(90, 4, id(font_small), "%.0f%%", id(battery_pct).state);
 
       // Temperature and Humidity on one line
       it.printf(0, 20, id(font_small), "%.1f°C  %.0f%%", id(temp).state, id(humid).state);
