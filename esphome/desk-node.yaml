@@ -79,7 +79,7 @@ binary_sensor:
     device_class: occupancy
     lambda: |-
       return id(desk_moving).state ||
-             (id(desk_still).state && id(desk_still_energy).state > 20);
+             (id(desk_still).state && id(desk_still_energy).state > 50);
 
 sensor:
   # Distance and energy readings for tuning detection zones
