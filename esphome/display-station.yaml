@@ -358,7 +358,7 @@ sensor:
     entity_id: sensor.tomorrow_wind_bearing
     on_value:
       - lvgl.label.update:
-          id: lbl_weather_data_wdirection
+          id: lbl_tomorrow_wind_dir
           text: !lambda
             'static const char *dirs[] = {
               "N","NNE","NE","ENE",
