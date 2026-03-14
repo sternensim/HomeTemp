@@ -29,7 +29,7 @@ api:
     key: !secret api_key
 
 # Over-the-air firmware updates
- ota:
+ota:
   - platform: esphome
     password: !secret ota_password
 
