@@ -1,9 +1,10 @@
-# ESPHome Configuration — Room Node 3 (Office/Kitchen)
+# ESPHome Configuration — Room Node 3 (Kitchen)
 # Hardware: ESP32 + BME680 + SSD1306 OLED + TP4056 charging
+# Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensors)
 
 esphome:
-  name: room-node-3
-  friendly_name: Office Node
+  name: kitchen
+  friendly_name: Kitchen
 
 esp32:
   board: esp32dev
@@ -17,7 +18,7 @@ wifi:
 
   # Fallback AP if WiFi connection fails
   ap:
-    ssid: "ESPHome-Node-3-Fallback"
+    ssid: "ESPHome-Kitchen-Fallback"
     password: "esphome123"
 
 captive_portal:
@@ -28,7 +29,7 @@ api:
     key: !secret api_key
 
 # Over-the-air firmware updates
-ota:
+ ota:
   - platform: esphome
     password: !secret ota_password
 
@@ -50,72 +51,130 @@ bme680_bsec:
   iaq_mode: static
   state_save_interval: 6h
   supply_voltage: 3.3V
-  operating_age: 28d
 
-# Sensor definitions (all from BME680)
+# Sensor definitions
 sensor:
   - platform: bme680_bsec
     temperature:
-      name: "Office Temperature"
+      name: "Kitchen Temperature"
       id: temp
       accuracy_decimals: 1
       filters:
         - offset: 0.0
     pressure:
-      name: "Office Pressure"
+      name: "Kitchen Pressure"
       id: press
       accuracy_decimals: 1
     humidity:
-      name: "Office Humidity"
+      name: "Kitchen Humidity"
       id: humid
       accuracy_decimals: 1
     gas_resistance:
-      name: "Office Gas Resistance"
+      name: "Kitchen Gas Resistance"
       id: gas_res
     iaq:
-      name: "Office IAQ Score"
+      name: "Kitchen IAQ Score"
       id: iaq
       accuracy_decimals: 0
     co2_equivalent:
-      name: "Office CO2 Equivalent"
+      name: "Kitchen CO2 Equivalent"
       id: co2_eq
       accuracy_decimals: 1
     breath_voc_equivalent:
-      name: "Office VOC Equivalent"
+      name: "Kitchen VOC Equivalent"
       id: voc_eq
       accuracy_decimals: 1
 
+  # LiPo temperature — NTC thermistor (white wire) on GPIO35
+  # Wiring: 3.3V → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
+  - platform: adc
+    pin: GPIO35
+    id: battery_temp_adc
+    update_interval: 60s
+    attenuation: 11db
+    internal: true
+
+  - platform: resistance
+    id: battery_temp_resistance
+    sensor: battery_temp_adc
+    configuration: DOWNSTREAM       # NTC is between GPIO35 and GND
+    resistor: 10000                  # 10kΩ fixed pull-up resistor (ohms)
+    reference_voltage: 3.3V
+    internal: true
+
+  - platform: ntc
+    sensor: battery_temp_resistance
+    name: "Kitchen Battery Temperature"
+    id: battery_temp
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    calibration:
+      b_constant: 3950              # adjust to 3435 if readings are off
+      reference_temperature: 25°C
+      reference_resistance: 10000  # NTC nominal resistance at 25°C (ohms)
+
+  # Battery voltage via voltage divider on GPIO34 (100kΩ + 100kΩ, multiply x2)
+  # Median filter removed — deep sleep means only 1 sample per wake cycle
+  - platform: adc
+    pin: GPIO34
+    name: "Kitchen Battery Voltage"
+    id: battery_voltage
+    update_interval: 60s
+    attenuation: 11db
+    filters:
+      - multiply: 2.0              # compensate for 1:1 voltage divider
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    state_class: measurement
+
+  # Battery percentage derived from voltage (3.0V=0%, 4.2V=100%)
+  - platform: template
+    name: "Kitchen Battery"
+    id: battery_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    state_class: measurement
+    lambda: |-
+      float v = id(battery_voltage).state;
+      if (v >= 4.2) return 100.0;
+      if (v <= 3.0) return 0.0;
+      return (v - 3.0) / 1.2 * 100.0;
+    update_interval: 60s
+
   # WiFi signal strength
   - platform: wifi_signal
-    name: "Office Node WiFi Signal"
+    name: "Kitchen Node WiFi Signal"
     update_interval: 60s
 
   # Uptime tracker
   - platform: uptime
-    name: "Office Node Uptime"
+    name: "Kitchen Node Uptime"
 
 # Text sensor for IAQ classification
 text_sensor:
   - platform: bme680_bsec
     iaq_accuracy:
-      name: "Office IAQ Accuracy"
+      name: "Kitchen IAQ Accuracy"
 
-# Fonts for OLED
+# OLED display (SSD1306, 128x64 pixels)
+# bpp: 1 — SSD1306 is monochrome, bpp:4 causes render errors
 font:
   - file: "gfonts://Roboto"
     id: font_large
     size: 24
-    bpp: 4
+    bpp: 1
   - file: "gfonts://Roboto"
     id: font_medium
     size: 16
-    bpp: 4
+    bpp: 1
   - file: "gfonts://Roboto"
     id: font_small
     size: 12
-    bpp: 4
+    bpp: 1
 
-# OLED display (SSD1306, 128×64 pixels)
 display:
   - platform: ssd1306_i2c
     model: "SSD1306 128x64"
@@ -124,16 +183,17 @@ display:
     update_interval: 5s
     brightness: 100%
     lambda: |-
-      // Title
-      it.printf(0, 0, id(font_medium), "Office");
+      // Title + battery %
+      it.printf(0, 0, id(font_medium), "Kitchen");
+      it.printf(90, 4, id(font_small), "%.0f%%", id(battery_pct).state);
 
-      // Temperature and Humidity
+      // Temperature and Humidity on one line
       it.printf(0, 20, id(font_small), "%.1f°C  %.0f%%", id(temp).state, id(humid).state);
 
       // Pressure
       it.printf(0, 34, id(font_small), "P: %.0f hPa", id(press).state);
 
-      // IAQ Score
+      // IAQ Score with simple status bar
       it.printf(0, 48, id(font_small), "IAQ: %.0f", id(iaq).state);
 
       // IAQ status indicator
@@ -147,19 +207,21 @@ display:
       }
 
 # Deep sleep configuration
-deep_sleep:
-  run_duration: 30s
-  sleep_duration: 5min
-  id: deep_sleep_control
+# 30s awake (WiFi connect + sensor read + OLED update)
+# 5min sleep between readings
+# deep_sleep:              # PATCHED OUT FOR DEBUGGING
+#   run_duration: 30s
+#   sleep_duration: 5min
+#   id: deep_sleep_control
 
-# Buttons for debugging
+# Button to prevent sleep (useful for debugging)
 button:
   - platform: restart
-    name: "Office Node Restart"
-  - platform: template
-    name: "Office Node Force Wake"
-    on_press:
-      - deep_sleep.prevent: deep_sleep_control
+    name: "Kitchen Node Restart"
+  # - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
+  #   name: "Kitchen Node Force Wake"
+  #   on_press:
+  #     - deep_sleep.prevent: deep_sleep_control
 
 # Status LED — GPIO16 is safe; GPIO2 is a strapping pin
 status_led:
