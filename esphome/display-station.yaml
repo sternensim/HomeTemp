@@ -687,11 +687,27 @@ lvgl:
         - button:
             x: 0
             y: 228
-            width: 320
+            width: 107
+            height: 12
+            bg_color: 0x1b3a5c
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_main
+            widgets:
+              - label:
+                  align: center
+                  text: "Aktuell"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
+        - button:
+            x: 107
+            y: 228
+            width: 106
             height: 12
             bg_color: 0x0d1b2a
-            border_color: 0x1b3a5c
-            border_width: 1
+            border_width: 0
             radius: 0
             pad_all: 0
             on_press:
@@ -699,7 +715,24 @@ lvgl:
             widgets:
               - label:
                   align: center
-                  text: "Heute >"
+                  text: "Heute"
+                  text_font: montserrat_12
+                  text_color: 0x4a6b8a
+        - button:
+            x: 213
+            y: 228
+            width: 107
+            height: 12
+            bg_color: 0x0d1b2a
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_forecast
+            widgets:
+              - label:
+                  align: center
+                  text: "Morgen"
                   text_font: montserrat_12
                   text_color: 0x4a6b8a
 
@@ -855,11 +888,44 @@ lvgl:
         - button:
             x: 0
             y: 228
-            width: 320
+            width: 107
             height: 12
             bg_color: 0x0d1b2a
-            border_color: 0x1b3a5c
-            border_width: 1
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_main
+            widgets:
+              - label:
+                  align: center
+                  text: "Aktuell"
+                  text_font: montserrat_12
+                  text_color: 0x4a6b8a
+        - button:
+            x: 107
+            y: 228
+            width: 106
+            height: 12
+            bg_color: 0x1b3a5c
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_today
+            widgets:
+              - label:
+                  align: center
+                  text: "Heute"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
+        - button:
+            x: 213
+            y: 228
+            width: 107
+            height: 12
+            bg_color: 0x0d1b2a
+            border_width: 0
             radius: 0
             pad_all: 0
             on_press:
@@ -867,7 +933,7 @@ lvgl:
             widgets:
               - label:
                   align: center
-                  text: "Morgen >"
+                  text: "Morgen"
                   text_font: montserrat_12
                   text_color: 0x4a6b8a
 
@@ -1023,11 +1089,10 @@ lvgl:
         - button:
             x: 0
             y: 228
-            width: 320
+            width: 107
             height: 12
             bg_color: 0x0d1b2a
-            border_color: 0x1b3a5c
-            border_width: 1
+            border_width: 0
             radius: 0
             pad_all: 0
             on_press:
@@ -1035,8 +1100,42 @@ lvgl:
             widgets:
               - label:
                   align: center
-                  text: "< Heute"
+                  text: "Aktuell"
                   text_font: montserrat_12
                   text_color: 0x4a6b8a
+        - button:
+            x: 107
+            y: 228
+            width: 106
+            height: 12
+            bg_color: 0x0d1b2a
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_today
+            widgets:
+              - label:
+                  align: center
+                  text: "Heute"
+                  text_font: montserrat_12
+                  text_color: 0x4a6b8a
+        - button:
+            x: 213
+            y: 228
+            width: 107
+            height: 12
+            bg_color: 0x1b3a5c
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            on_press:
+              - lvgl.page.show: page_forecast
+            widgets:
+              - label:
+                  align: center
+                  text: "Morgen"
+                  text_font: montserrat_12
+                  text_color: 0x90caf9
 
         # ── (placeholder for last line) ───────────────────────────────────────
