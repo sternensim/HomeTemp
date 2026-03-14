@@ -57,17 +57,29 @@ ld2410:
   uart_id: uart_ld2410
 
 binary_sensor:
-  # Main presence output — use this in HA automation to control the plug
   - platform: ld2410
     has_target:
-      name: "Desk Presence"
-      device_class: occupancy
+      name: "Desk Presence Raw"
+      id: desk_presence_raw
+      internal: true        # hidden — use the filtered sensor below in your automation
     has_moving_target:
       name: "Desk Moving Target"
+      id: desk_moving
       entity_category: diagnostic
     has_still_target:
       name: "Desk Still Target"
+      id: desk_still
       entity_category: diagnostic
+
+  # Filtered occupancy: moving target OR (still target with energy above threshold)
+  # Raise still_energy threshold if the chair/desk is still triggering false positives
+  - platform: template
+    name: "Desk Presence"
+    id: desk_presence
+    device_class: occupancy
+    lambda: |-
+      return id(desk_moving).state ||
+             (id(desk_still).state && id(desk_still_energy).state > 20);
 
 sensor:
   # Distance and energy readings for tuning detection zones
@@ -83,6 +95,7 @@ sensor:
       entity_category: diagnostic
     still_energy:
       name: "Desk Still Energy"
+      id: desk_still_energy
       entity_category: diagnostic
     detection_distance:
       name: "Desk Detection Distance"
@@ -98,6 +111,8 @@ sensor:
     entity_category: diagnostic
 
 # Expose LD2410C config knobs to HA so you can tune without reflashing
+# Gate N covers N*0.75m to (N+1)*0.75m from the sensor
+# Still sensitivity: higher value = harder to trigger = fewer false positives
 number:
   - platform: ld2410
     timeout:
@@ -106,6 +121,38 @@ number:
       name: "Desk Max Move Distance"
     max_still_distance_gate:
       name: "Desk Max Still Distance"
+    # Per-gate still sensitivity — raise these to suppress false positives from furniture
+    gate_0_still_sensitivity:
+      name: "Gate 0 Still Sensitivity (0–0.75m)"
+      entity_category: config
+    gate_1_still_sensitivity:
+      name: "Gate 1 Still Sensitivity (0.75–1.5m)"
+      entity_category: config
+    gate_2_still_sensitivity:
+      name: "Gate 2 Still Sensitivity (1.5–2.25m)"
+      entity_category: config
+    gate_3_still_sensitivity:
+      name: "Gate 3 Still Sensitivity (2.25–3m)"
+      entity_category: config
+    gate_4_still_sensitivity:
+      name: "Gate 4 Still Sensitivity (3–3.75m)"
+      entity_category: config
+    # Per-gate move sensitivity — usually fine at default
+    gate_0_move_sensitivity:
+      name: "Gate 0 Move Sensitivity (0–0.75m)"
+      entity_category: config
+    gate_1_move_sensitivity:
+      name: "Gate 1 Move Sensitivity (0.75–1.5m)"
+      entity_category: config
+    gate_2_move_sensitivity:
+      name: "Gate 2 Move Sensitivity (1.5–2.25m)"
+      entity_category: config
+    gate_3_move_sensitivity:
+      name: "Gate 3 Move Sensitivity (2.25–3m)"
+      entity_category: config
+    gate_4_move_sensitivity:
+      name: "Gate 4 Move Sensitivity (3–3.75m)"
+      entity_category: config
 
 button:
   - platform: restart
