@@ -51,9 +51,8 @@ bme680_bsec:
   iaq_mode: static
   state_save_interval: 6h
   supply_voltage: 3.3V
-  operating_age: 28d
 
-# Sensor definitions (all from BME680)
+# Sensor definitions
 sensor:
   - platform: bme680_bsec
     temperature:
@@ -86,8 +85,8 @@ sensor:
       id: voc_eq
       accuracy_decimals: 1
 
-  # LiPo temperature — NTC thermistor on GPIO35
-  # Wiring: 3.3V → 10kΩ fixed → GPIO35 → 10kΩ NTC → GND
+  # LiPo temperature — NTC thermistor (white wire) on GPIO35
+  # Wiring: 3.3V → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
   - platform: adc
     pin: GPIO35
     id: battery_temp_adc
@@ -99,7 +98,7 @@ sensor:
     id: battery_temp_resistance
     sensor: battery_temp_adc
     configuration: DOWNSTREAM       # NTC is between GPIO35 and GND
-    resistor: 10kΩ
+    resistor: 10000                  # 10kΩ fixed pull-up resistor (ohms)
     reference_voltage: 3.3V
     internal: true
 
@@ -111,11 +110,12 @@ sensor:
     device_class: temperature
     state_class: measurement
     calibration:
-      b_constant: 3950              # adjust if your NTC datasheet says otherwise
+      b_constant: 3950              # adjust to 3435 if readings are off
       reference_temperature: 25°C
-      reference_resistance: 10kΩ
+      reference_resistance: 10000  # NTC nominal resistance at 25°C (ohms)
 
   # Battery voltage via voltage divider on GPIO34 (100kΩ + 100kΩ, multiply x2)
+  # Median filter removed — deep sleep means only 1 sample per wake cycle
   - platform: adc
     pin: GPIO34
     name: "Living Room Battery Voltage"
@@ -123,10 +123,7 @@ sensor:
     update_interval: 60s
     attenuation: 11db
     filters:
-      - multiply: 2.0        # compensate for 1:1 voltage divider
-      - median:
-          window_size: 5
-          send_every: 5
+      - multiply: 2.0              # compensate for 1:1 voltage divider
     unit_of_measurement: "V"
     accuracy_decimals: 2
     device_class: voltage
@@ -162,20 +159,21 @@ text_sensor:
     iaq_accuracy:
       name: "Living Room IAQ Accuracy"
 
-# OLED display (SSD1306, 128×64 pixels)
+# OLED display (SSD1306, 128x64 pixels)
+# bpp: 1 — SSD1306 is monochrome, bpp:4 causes render errors
 font:
   - file: "gfonts://Roboto"
     id: font_large
     size: 24
-    bpp: 4
+    bpp: 1
   - file: "gfonts://Roboto"
     id: font_medium
     size: 16
-    bpp: 4
+    bpp: 1
   - file: "gfonts://Roboto"
     id: font_small
     size: 12
-    bpp: 4
+    bpp: 1
 
 display:
   - platform: ssd1306_i2c
@@ -198,14 +196,14 @@ display:
       // IAQ Score with simple status bar
       it.printf(0, 48, id(font_small), "IAQ: %.0f", id(iaq).state);
 
-      // IAQ status indicator (green/yellow/red)
+      // IAQ status indicator
       int iaq_val = (int)id(iaq).state;
       if (iaq_val < 50) {
-        it.rectangle(100, 48, 28, 6, COLOR_ON);  // Good - green outline
+        it.rectangle(100, 48, 28, 6, COLOR_ON);
       } else if (iaq_val < 100) {
-        it.filled_rectangle(100, 48, 28, 6, COLOR_ON);  // OK - filled
+        it.filled_rectangle(100, 48, 28, 6, COLOR_ON);
       } else {
-        it.rectangle(100, 48, 10, 6, COLOR_ON);  // Poor - red
+        it.rectangle(100, 48, 10, 6, COLOR_ON);
       }
 
 # Deep sleep configuration
