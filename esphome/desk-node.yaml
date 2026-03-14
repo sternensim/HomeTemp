@@ -1,0 +1,132 @@
+# ESPHome Configuration — Desk Node
+# Hardware: ESP32 + HLK-LD2410C mmWave presence sensor
+# Purpose: Detect desk occupancy and control desk light via HA smart plug
+#
+# Wiring:
+#   LD2410C VCC → 5V (sensor requires 5V)
+#   LD2410C GND → GND
+#   LD2410C TX  → ESP32 GPIO16 (UART2 RX)
+#   LD2410C RX  → ESP32 GPIO17 (UART2 TX)
+#
+# HA Automation (add in Home Assistant):
+#   Trigger:  binary_sensor.desk_desk_presence  ON  → turn on smart plug
+#   Trigger:  binary_sensor.desk_desk_presence  OFF (for 60s) → turn off smart plug
+#   (60s delay prevents the light turning off when you briefly look away)
+
+esphome:
+  name: desk
+  friendly_name: Desk Node
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "ESPHome-Desk-Fallback"
+    password: "esphome123"
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: INFO
+
+# UART for LD2410C (256000 baud, 8N1)
+uart:
+  id: uart_ld2410
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+# LD2410C mmWave presence sensor
+ld2410:
+  uart_id: uart_ld2410
+
+binary_sensor:
+  # Main presence output — use this in HA automation to control the plug
+  - platform: ld2410
+    has_target:
+      name: "Desk Presence"
+      device_class: occupancy
+    has_moving_target:
+      name: "Desk Moving Target"
+      entity_category: diagnostic
+    has_still_target:
+      name: "Desk Still Target"
+      entity_category: diagnostic
+
+sensor:
+  # Distance and energy readings for tuning detection zones
+  - platform: ld2410
+    moving_distance:
+      name: "Desk Moving Distance"
+      entity_category: diagnostic
+    still_distance:
+      name: "Desk Still Distance"
+      entity_category: diagnostic
+    moving_energy:
+      name: "Desk Moving Energy"
+      entity_category: diagnostic
+    still_energy:
+      name: "Desk Still Energy"
+      entity_category: diagnostic
+    detection_distance:
+      name: "Desk Detection Distance"
+      entity_category: diagnostic
+
+  - platform: wifi_signal
+    name: "Desk Node WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Desk Node Uptime"
+    entity_category: diagnostic
+
+# Expose LD2410C config knobs to HA so you can tune without reflashing
+number:
+  - platform: ld2410
+    timeout:
+      name: "Desk Presence Timeout"
+    max_move_distance_gate:
+      name: "Desk Max Move Distance"
+    max_still_distance_gate:
+      name: "Desk Max Still Distance"
+
+button:
+  - platform: restart
+    name: "Desk Node Restart"
+    entity_category: diagnostic
+  - platform: ld2410
+    factory_reset:
+      name: "LD2410C Factory Reset"
+      entity_category: diagnostic
+    restart:
+      name: "LD2410C Restart"
+      entity_category: diagnostic
+
+select:
+  - platform: ld2410
+    distance_resolution:
+      name: "Desk Distance Resolution"
+      entity_category: config
+
+text_sensor:
+  - platform: ld2410
+    version:
+      name: "LD2410C Firmware Version"
+      entity_category: diagnostic
