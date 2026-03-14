@@ -340,7 +340,7 @@ sensor:
 
   - platform: homeassistant
     id: today_precip
-    entity_id: sensor.today_precipitation_probability
+    entity_id: sensor.today_precipitation
     on_value:
       - lvgl.label.update:
           id: lbl_today_precip
