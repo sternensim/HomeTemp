@@ -120,6 +120,7 @@ touchscreen:
       y_max: 3900
     transform:
       swap_xy: true   # required when display is rotated 90°
+      mirror_x: true  # fix: touch X axis was inverted (left/right swapped)
       mirror_y: true  # fix: touch Y axis was inverted
 
 
@@ -1096,7 +1097,7 @@ lvgl:
             radius: 0
             pad_all: 0
             on_press:
-              - lvgl.page.show: page_forecast
+              - lvgl.page.show: page_main
             widgets:
               - label:
                   align: center
@@ -1130,7 +1131,7 @@ lvgl:
             radius: 0
             pad_all: 0
             on_press:
-              - lvgl.page.show: page_main
+              - lvgl.page.show: page_forecast
             widgets:
               - label:
                   align: center
