@@ -111,8 +111,6 @@ sensor:
     entity_category: diagnostic
 
 # Expose LD2410C config knobs to HA so you can tune without reflashing
-# Gate N covers N*0.75m to (N+1)*0.75m from the sensor
-# Still sensitivity: higher value = harder to trigger = fewer false positives
 number:
   - platform: ld2410
     timeout:
@@ -121,38 +119,6 @@ number:
       name: "Desk Max Move Distance"
     max_still_distance_gate:
       name: "Desk Max Still Distance"
-    # Per-gate still sensitivity — raise these to suppress false positives from furniture
-    gate_0_still_sensitivity:
-      name: "Gate 0 Still Sensitivity (0–0.75m)"
-      entity_category: config
-    gate_1_still_sensitivity:
-      name: "Gate 1 Still Sensitivity (0.75–1.5m)"
-      entity_category: config
-    gate_2_still_sensitivity:
-      name: "Gate 2 Still Sensitivity (1.5–2.25m)"
-      entity_category: config
-    gate_3_still_sensitivity:
-      name: "Gate 3 Still Sensitivity (2.25–3m)"
-      entity_category: config
-    gate_4_still_sensitivity:
-      name: "Gate 4 Still Sensitivity (3–3.75m)"
-      entity_category: config
-    # Per-gate move sensitivity — usually fine at default
-    gate_0_move_sensitivity:
-      name: "Gate 0 Move Sensitivity (0–0.75m)"
-      entity_category: config
-    gate_1_move_sensitivity:
-      name: "Gate 1 Move Sensitivity (0.75–1.5m)"
-      entity_category: config
-    gate_2_move_sensitivity:
-      name: "Gate 2 Move Sensitivity (1.5–2.25m)"
-      entity_category: config
-    gate_3_move_sensitivity:
-      name: "Gate 3 Move Sensitivity (2.25–3m)"
-      entity_category: config
-    gate_4_move_sensitivity:
-      name: "Gate 4 Move Sensitivity (3–3.75m)"
-      entity_category: config
 
 button:
   - platform: restart
