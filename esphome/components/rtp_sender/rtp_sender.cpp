@@ -1,6 +1,7 @@
 #include "rtp_sender.h"
 
 #include "esphome/core/log.h"
+#include "esphome/core/hal.h"       // millis()
 #include "esphome/core/helpers.h"   // random_uint32()
 
 #include <cstring>
