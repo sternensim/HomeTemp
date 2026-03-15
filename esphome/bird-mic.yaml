@@ -99,6 +99,7 @@ voice_assistant:
 # to rtsp://mediamtx:8554/bird from within the Docker network.
 # mediamtx_host must be the LAN IP of the Docker host (not 'localhost').
 rtp_sender:
+  id: rtp
   microphone_id: bird_microphone
   host: !secret mediamtx_host   # LAN IP of the Docker host, e.g. 192.168.1.10
   port: 8554                     # mediamtx RTSP port
@@ -141,9 +142,10 @@ interval:
           then:
             - logger.log:
                 level: WARN
-                format: "MCU temp %.1f°C exceeds 80°C — stopping voice assistant"
+                format: "MCU temp %.1f°C exceeds 80°C — stopping all audio streams"
                 args: [id(mcu_temp).state]
             - voice_assistant.stop:
+            - lambda: 'id(rtp).stop_streaming();'
 
 # ─── Buttons ─────────────────────────────────────────────────────────────────
 button:
@@ -155,8 +157,10 @@ button:
     name: "Bird Mic Start Streaming"
     on_press:
       - voice_assistant.start_continuous:
+      - lambda: 'id(rtp).start_streaming();'
 
   - platform: template
     name: "Bird Mic Stop Streaming"
     on_press:
       - voice_assistant.stop:
+      - lambda: 'id(rtp).stop_streaming();'

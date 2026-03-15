@@ -44,27 +44,46 @@ void RtpSender::dump_config() {
 }
 
 void RtpSender::loop() {
-  if (state_ != RtpState::IDLE) return;
+  RtpState st = state_.load();
+  if (st != RtpState::IDLE) return;
 
   uint32_t now = millis();
   if (now - last_attempt_ms_ < RETRY_MS) return;
   last_attempt_ms_ = now;
 
-  state_ = RtpState::CONNECTING;
+  state_.store(RtpState::CONNECTING);
 
   if (rtsp_connect_() && rtsp_announce_() && rtsp_setup_() && rtsp_record_()) {
-    state_ = RtpState::RECORDING;
+    state_.store(RtpState::RECORDING);
     ESP_LOGI(TAG, "RTSP publish active");
   } else {
     disconnect_();
   }
 }
 
+// ─── Public control ───────────────────────────────────────────────────────────
+
+void RtpSender::stop_streaming() {
+  ESP_LOGI(TAG, "Stopping RTP stream");
+  disconnect_();
+  mic_->stop();
+  state_.store(RtpState::STOPPED);
+}
+
+void RtpSender::start_streaming() {
+  ESP_LOGI(TAG, "Starting RTP stream");
+  mic_->start();
+  state_.store(RtpState::IDLE);    // loop() will initiate RTSP handshake
+  last_attempt_ms_ = 0;            // connect immediately
+}
+
 // ─── RTSP handshake ───────────────────────────────────────────────────────────
 
 bool RtpSender::rtsp_connect_() {
-  sock_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (sock_ < 0) {
+  sock_.store(-1);
+
+  int fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (fd < 0) {
     ESP_LOGE(TAG, "socket() failed errno=%d", errno);
     return false;
   }
@@ -73,8 +92,7 @@ bool RtpSender::rtsp_connect_() {
   struct hostent *he = ::gethostbyname(host_.c_str());
   if (!he) {
     ESP_LOGE(TAG, "DNS failed for '%s'", host_.c_str());
-    ::close(sock_);
-    sock_ = -1;
+    ::close(fd);
     return false;
   }
 
@@ -83,15 +101,48 @@ bool RtpSender::rtsp_connect_() {
   addr.sin_port   = htons(port_);
   ::memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
-  // Blocking connect (timeout via SO_RCVTIMEO on the subsequent reads)
-  if (::connect(sock_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
+  // Non-blocking connect with timeout to avoid freezing the main loop
+  int flags = ::fcntl(fd, F_GETFL, 0);
+  ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+  int ret = ::connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
+  if (ret < 0 && errno != EINPROGRESS) {
     ESP_LOGE(TAG, "connect() failed errno=%d", errno);
-    ::close(sock_);
-    sock_ = -1;
+    ::close(fd);
     return false;
   }
 
-  // After handshake we switch to non-blocking for the audio path
+  if (ret != 0) {
+    // Wait for connection with timeout using select()
+    fd_set wset;
+    FD_ZERO(&wset);
+    FD_SET(fd, &wset);
+    struct timeval tv;
+    tv.tv_sec  = CONNECT_TIMEOUT_MS / 1000;
+    tv.tv_usec = (CONNECT_TIMEOUT_MS % 1000) * 1000;
+
+    int sel = ::select(fd + 1, nullptr, &wset, nullptr, &tv);
+    if (sel <= 0) {
+      ESP_LOGE(TAG, "connect() timed out after %u ms", CONNECT_TIMEOUT_MS);
+      ::close(fd);
+      return false;
+    }
+
+    // Check for connect error
+    int err = 0;
+    socklen_t len = sizeof(err);
+    ::getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len);
+    if (err != 0) {
+      ESP_LOGE(TAG, "connect() async error: %d", err);
+      ::close(fd);
+      return false;
+    }
+  }
+
+  // Switch back to blocking for RTSP handshake
+  ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+
+  sock_.store(fd);
   ESP_LOGD(TAG, "TCP connected to %s:%u", host_.c_str(), port_);
   return true;
 }
@@ -130,7 +181,8 @@ bool RtpSender::rtsp_announce_() {
     static_cast<unsigned>(sdp.size()),
     sdp.c_str());
 
-  return tcp_send_blocking_(msg, ::strlen(msg)) && rtsp_read_ok_();
+  std::string response;
+  return tcp_send_blocking_(msg, ::strlen(msg)) && rtsp_read_response_(response);
 }
 
 bool RtpSender::rtsp_setup_() {
@@ -143,35 +195,56 @@ bool RtpSender::rtsp_setup_() {
     host_.c_str(), port_, path_.c_str(),
     cseq_++);
 
-  return tcp_send_blocking_(msg, ::strlen(msg)) && rtsp_read_ok_();
+  std::string response;
+  if (!tcp_send_blocking_(msg, ::strlen(msg)) || !rtsp_read_response_(response))
+    return false;
+
+  // Extract Session header from SETUP response — required for RECORD
+  session_id_ = parse_session_(response);
+  if (session_id_.empty()) {
+    ESP_LOGE(TAG, "SETUP response missing Session header");
+    return false;
+  }
+  ESP_LOGD(TAG, "RTSP Session: %s", session_id_.c_str());
+  return true;
 }
 
 bool RtpSender::rtsp_record_() {
-  char msg[192];
+  char msg[320];
   ::snprintf(msg, sizeof(msg),
     "RECORD rtsp://%s:%u%s RTSP/1.0\r\n"
     "CSeq: %u\r\n"
+    "Session: %s\r\n"
+    "Range: npt=0.000-\r\n"
     "\r\n",
     host_.c_str(), port_, path_.c_str(),
-    cseq_++);
+    cseq_++,
+    session_id_.c_str());
 
-  if (!tcp_send_blocking_(msg, ::strlen(msg)) || !rtsp_read_ok_())
+  std::string response;
+  if (!tcp_send_blocking_(msg, ::strlen(msg)) || !rtsp_read_response_(response))
     return false;
 
   // Switch socket to non-blocking so audio sends never stall the main loop
-  int flags = ::fcntl(sock_, F_GETFL, 0);
-  ::fcntl(sock_, F_SETFL, flags | O_NONBLOCK);
+  int fd = sock_.load();
+  if (fd >= 0) {
+    int flags = ::fcntl(fd, F_GETFL, 0);
+    ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  }
   return true;
 }
 
 bool RtpSender::tcp_send_blocking_(const char *data, size_t len) {
+  int fd = sock_.load();
+  if (fd < 0) return false;
+
   // Ensure socket is blocking for RTSP control messages
-  int flags = ::fcntl(sock_, F_GETFL, 0);
-  ::fcntl(sock_, F_SETFL, flags & ~O_NONBLOCK);
+  int flags = ::fcntl(fd, F_GETFL, 0);
+  ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
   size_t sent = 0;
   while (sent < len) {
-    int n = ::send(sock_, data + sent, len - sent, 0);
+    int n = ::send(fd, data + sent, len - sent, 0);
     if (n <= 0) {
       ESP_LOGE(TAG, "tcp_send_ error errno=%d", errno);
       return false;
@@ -181,24 +254,46 @@ bool RtpSender::tcp_send_blocking_(const char *data, size_t len) {
   return true;
 }
 
-bool RtpSender::rtsp_read_ok_() {
+bool RtpSender::rtsp_read_response_(std::string &response) {
+  int fd = sock_.load();
+  if (fd < 0) return false;
+
   // Apply a 5-second receive timeout for control messages
   struct timeval tv = {5, 0};
-  ::setsockopt(sock_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
   char buf[512] = {};
-  int n = ::recv(sock_, buf, sizeof(buf) - 1, 0);
+  int n = ::recv(fd, buf, sizeof(buf) - 1, 0);
   if (n <= 0) {
-    ESP_LOGE(TAG, "rtsp_read_ok_: no response (errno=%d)", errno);
+    ESP_LOGE(TAG, "rtsp_read_response_: no response (errno=%d)", errno);
     return false;
   }
+  buf[n] = '\0';
 
   if (::strncmp(buf, "RTSP/1.0 200", 12) != 0) {
-    buf[n] = '\0';
     ESP_LOGE(TAG, "RTSP unexpected response: %.120s", buf);
     return false;
   }
+
+  response.assign(buf, n);
   return true;
+}
+
+std::string RtpSender::parse_session_(const std::string &response) {
+  // Look for "Session: <id>" header. The id may be followed by ";timeout=..."
+  const char *key = "Session: ";
+  size_t pos = response.find(key);
+  if (pos == std::string::npos) {
+    // Try case-insensitive (some servers use "Session:" with varying case)
+    key = "session: ";
+    pos = response.find(key);
+  }
+  if (pos == std::string::npos) return {};
+
+  size_t start = pos + ::strlen(key);
+  size_t end = response.find_first_of(";\r\n", start);
+  if (end == std::string::npos) end = response.size();
+  return response.substr(start, end - start);
 }
 
 // ─── Audio path ───────────────────────────────────────────────────────────────
@@ -207,7 +302,12 @@ bool RtpSender::rtsp_read_ok_() {
 // Keep allocations off the heap — use the static buffers in the header.
 
 void RtpSender::on_mic_data_(const std::vector<uint8_t> &data) {
-  if (state_ != RtpState::RECORDING || sock_ < 0) return;
+  // Snapshot shared state into locals for thread safety.
+  // If disconnect_() runs concurrently, we may send on a stale fd —
+  // that produces EBADF which triggers the reconnect path safely.
+  if (state_.load() != RtpState::RECORDING) return;
+  int fd = sock_.load();
+  if (fd < 0) return;
 
   // I2S delivers 32-bit frames (ICS-43434: 24-bit audio in the upper 24 bits,
   // zero-padded in the lower 8 bits, signed 2's complement, little-endian).
@@ -220,10 +320,10 @@ void RtpSender::on_mic_data_(const std::vector<uint8_t> &data) {
     pcm_buf_[i] = static_cast<int16_t>(src[i] >> 16);
   }
 
-  send_rtp_(pcm_buf_, n);
+  send_rtp_(pcm_buf_, n, fd);
 }
 
-void RtpSender::send_rtp_(const int16_t *samples, size_t n) {
+void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
   // Packet layout (all big-endian):
   //   [0]    '$'          RTSP interleave marker
   //   [1]    0            channel 0 = RTP data
@@ -269,13 +369,11 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n) {
 
   // Non-blocking send — drop the packet silently if the TCP buffer is full.
   // A dropped audio packet is harmless for BirdNET-Go (it buffers many frames).
-  int sent = ::send(sock_, rtp_buf_, frame_len, MSG_DONTWAIT);
+  int sent = ::send(fd, rtp_buf_, frame_len, MSG_DONTWAIT);
   if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-    // Real error — signal the main loop to reconnect
+    // Real error (including EBADF from race) — signal main loop to reconnect
     ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
-    state_ = RtpState::IDLE;
-    ::close(sock_);
-    sock_ = -1;
+    state_.store(RtpState::IDLE);
   }
 
   rtp_seq_++;
@@ -283,12 +381,13 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n) {
 }
 
 void RtpSender::disconnect_() {
-  if (sock_ >= 0) {
-    ::close(sock_);
-    sock_ = -1;
+  int fd = sock_.exchange(-1);   // atomically grab and invalidate
+  if (fd >= 0) {
+    ::close(fd);
   }
-  state_ = RtpState::IDLE;
+  state_.store(RtpState::IDLE);
   cseq_  = 1;
+  session_id_.clear();
   ESP_LOGW(TAG, "RTSP disconnected — retrying in %u s", RETRY_MS / 1000);
 }
 

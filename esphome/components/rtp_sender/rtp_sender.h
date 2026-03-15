@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/microphone/microphone.h"
 
+#include <atomic>
 #include <string>
 #include <cstdint>
 
@@ -20,6 +21,7 @@ enum class RtpState : uint8_t {
   IDLE,        // waiting / retry back-off
   CONNECTING,  // TCP + RTSP handshake in progress
   RECORDING,   // actively sending RTP frames
+  STOPPED,     // explicitly stopped (thermal protection / user request)
 };
 
 class RtpSender : public Component {
@@ -36,6 +38,10 @@ class RtpSender : public Component {
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
+  // Public control — callable from YAML lambdas via id(rtp_sender_id)
+  void stop_streaming();
+  void start_streaming();
+
  protected:
   // Config
   microphone::Microphone *mic_{nullptr};
@@ -44,14 +50,16 @@ class RtpSender : public Component {
   std::string path_{"/bird"};
   uint32_t sample_rate_{48000};
 
-  // TCP socket + state
-  int sock_{-1};
-  volatile RtpState state_{RtpState::IDLE};
+  // TCP socket + state (accessed from I2S task and main loop)
+  std::atomic<int> sock_{-1};
+  std::atomic<RtpState> state_{RtpState::IDLE};
   uint32_t last_attempt_ms_{0};
   static constexpr uint32_t RETRY_MS = 15000;
+  static constexpr uint32_t CONNECT_TIMEOUT_MS = 5000;
 
   // RTSP sequencing
   uint16_t cseq_{1};
+  std::string session_id_;   // parsed from SETUP response
 
   // RTP sequencing
   uint16_t rtp_seq_{0};
@@ -68,12 +76,13 @@ class RtpSender : public Component {
   bool rtsp_setup_();
   bool rtsp_record_();
   bool tcp_send_blocking_(const char *data, size_t len);
-  bool rtsp_read_ok_();
+  bool rtsp_read_response_(std::string &response);
   std::string build_sdp_();
+  std::string parse_session_(const std::string &response);
 
   // Audio pipeline
   void on_mic_data_(const std::vector<uint8_t> &data);
-  void send_rtp_(const int16_t *samples, size_t n);
+  void send_rtp_(const int16_t *samples, size_t n, int fd);
   void disconnect_();
 };
 
