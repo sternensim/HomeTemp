@@ -10,10 +10,9 @@
 #     ICS-43434 GND   → GND
 #     ICS-43434 L/R   → GND  (selects left channel)
 #
-# Audio is delivered to BirdNET-Go via two paths:
-#   1. voice_assistant → HA native API   (HA dashboard / Assist pipeline)
-#   2. rtp_sender → RTSP ANNOUNCE → mediamtx:8554/bird → BirdNET-Go (RTSP)
-#      The custom component in components/rtp_sender/ handles the RTSP publish.
+# Audio is delivered to BirdNET-Go via RTSP:
+#   rtp_sender → RTSP ANNOUNCE → mediamtx:8554/bird → BirdNET-Go
+#   The custom component in components/rtp_sender/ handles the RTSP publish.
 # See: bird-mic-howto.md for the full setup guide.
 
 esphome:
@@ -76,23 +75,7 @@ microphone:
     pdm: false
     channel: left           # L/R pin tied to GND → left channel
     bits_per_sample: 32bit
-    sample_rate: 48000
-
-# ─── Voice Assistant ──────────────────────────────────────────────────────────
-# Streams audio to HA's Assist pipeline. HA can forward to BirdNET-Go add-on.
-# Adjust volume_multiplier to change gain (original project uses 1.2x).
-voice_assistant:
-  microphone: bird_microphone
-  id: va
-  noise_suppression_level: 0   # No suppression — we want raw environment audio
-  auto_gain: 0dBFS
-  volume_multiplier: 1.2       # 1.2x gain, matching original project default
-
-  on_error:
-    - logger.log:
-        level: WARN
-        format: "Voice assistant error: %s"
-        args: [message.c_str()]
+    sample_rate: 48000      # ICS-43434 native rate, optimal for BirdNET-Go
 
 # ─── RTP sender → mediamtx → BirdNET-Go ─────────────────────────────────────
 # Publishes audio to mediamtx via RTSP ANNOUNCE so BirdNET-Go can subscribe
@@ -144,7 +127,6 @@ interval:
                 level: WARN
                 format: "MCU temp %.1f°C exceeds 80°C — stopping all audio streams"
                 args: [id(mcu_temp).state]
-            - voice_assistant.stop:
             - lambda: 'id(rtp).stop_streaming();'
 
 # ─── Buttons ─────────────────────────────────────────────────────────────────
@@ -156,11 +138,9 @@ button:
   - platform: template
     name: "Bird Mic Start Streaming"
     on_press:
-      - voice_assistant.start_continuous:
       - lambda: 'id(rtp).start_streaming();'
 
   - platform: template
     name: "Bird Mic Stop Streaming"
     on_press:
-      - voice_assistant.stop:
       - lambda: 'id(rtp).stop_streaming();'
