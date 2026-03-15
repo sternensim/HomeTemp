@@ -78,7 +78,7 @@ binary_sensor:
     id: desk_presence
     device_class: occupancy
     lambda: |-
-      return id(desk_moving).state ||
+      return id(desk_moving_energy).state > 50 ||
              (id(desk_still).state && id(desk_still_energy).state > 70);
 
 sensor:
@@ -92,6 +92,7 @@ sensor:
       entity_category: diagnostic
     moving_energy:
       name: "Desk Moving Energy"
+      id: desk_moving_energy
       entity_category: diagnostic
     still_energy:
       name: "Desk Still Energy"
