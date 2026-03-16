@@ -191,7 +191,7 @@ bool RtpSender::rtsp_setup_() {
   ::snprintf(msg, sizeof(msg),
     "SETUP rtsp://%s:%u%s/trackID=0 RTSP/1.0\r\n"
     "CSeq: %u\r\n"
-    "Transport: RTP/AVP/TCP;unicast;interleaved=0-1\r\n"
+    "Transport: RTP/AVP/TCP;unicast;interleaved=0-1;mode=record\r\n"
     "\r\n",
     host_.c_str(), port_, path_.c_str(),
     cseq_++);
