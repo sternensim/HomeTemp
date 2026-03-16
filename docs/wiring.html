@@ -1,0 +1,494 @@
+You're right — adding the BME680 made it messy. Let me start fresh with a clean, simple layout.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar IoT Wiring Diagram</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --surface: #111827;
+            --border: #1e293b;
+            --red: #ef4444;
+            --gray: #475569;
+            --orange: #f97316;
+            --cyan: #22d3ee;
+            --green: #4ade80;
+            --yellow: #facc15;
+            --purple: #c084fc;
+            --text: #e2e8f0;
+            --text-dim: #64748b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            padding: 20px;
+        }
+
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-family: Inter, sans-serif;
+            font-size: 1.4rem;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .sub {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            margin-bottom: 16px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+        }
+
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend i {
+            width: 16px;
+            height: 3px;
+            border-radius: 2px;
+            display: block;
+        }
+
+        svg { width: 100%; display: block; }
+
+        .box {
+            fill: var(--surface);
+            stroke: var(--border);
+            stroke-width: 1.5;
+            rx: 8;
+        }
+
+        .title {
+            font-family: Inter, sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            fill: var(--text);
+            text-anchor: middle;
+        }
+
+        .info {
+            font-size: 9px;
+            fill: var(--text-dim);
+            text-anchor: middle;
+        }
+
+        .pin {
+            font-size: 8px;
+            fill: var(--text-dim);
+        }
+
+        .note-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 16px;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+
+        .note-box h3 {
+            font-family: Inter;
+            font-size: 0.8rem;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .card h3 {
+            font-family: Inter;
+            font-size: 0.75rem;
+            margin-bottom: 6px;
+        }
+
+        .card ul {
+            list-style: none;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Solar IoT — Wiring Diagram</h1>
+    <p class="sub">ESP32 · TP4056 · LiPo · Diode · OLED · BME680 · Sensors</p>
+
+    <div class="legend">
+        <span><i style="background:var(--red)"></i>Power +</span>
+        <span><i style="background:var(--gray)"></i>Ground −</span>
+        <span><i style="background:var(--orange)"></i>Solar</span>
+        <span><i style="background:var(--cyan)"></i>I²C</span>
+        <span><i style="background:var(--green)"></i>Temp (ADC)</span>
+        <span><i style="background:var(--yellow)"></i>Voltage (ADC)</span>
+        <span><i style="background:var(--purple)"></i>Config</span>
+    </div>
+
+    <svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg">
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- HORIZONTAL BUSES -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- Power bus (red) -->
+        <line x1="30" y1="60" x2="850" y2="60" stroke="var(--red)" stroke-width="2.5"/>
+        <text x="855" y="58" fill="var(--red)" font-size="8" font-weight="500">+V</text>
+
+        <!-- Ground bus (gray) -->
+        <line x1="30" y1="100" x2="850" y2="100" stroke="var(--gray)" stroke-width="2.5"/>
+        <text x="855" y="98" fill="var(--gray)" font-size="8" font-weight="500">GND</text>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SOLAR PANEL -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="30" y="140" width="90" height="55" class="box"/>
+        <text x="75" y="162" class="title">☀️ SOLAR</text>
+        <text x="75" y="178" class="info">5.5V · 100mA</text>
+
+        <!-- Solar wires -->
+        <line x1="75" y1="140" x2="75" y2="110" stroke="var(--orange)" stroke-width="2"/>
+        <line x1="75" y1="110" x2="75" y2="60" stroke="var(--orange)" stroke-width="2"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- TP4056 -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="160" y="140" width="90" height="55" class="box" style="stroke:var(--cyan)"/>
+        <text x="205" y="162" class="title">TP4056</text>
+        <text x="205" y="178" class="info">Charger</text>
+
+        <!-- Solar → TP4056 -->
+        <line x1="120" y1="167" x2="160" y2="167" stroke="var(--orange)" stroke-width="2"/>
+        <!-- TP4056 → Bus -->
+        <line x1="205" y1="140" x2="205" y2="60" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- BATTERY -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="290" y="140" width="100" height="55" class="box"/>
+        <text x="340" y="162" class="title">🔋 BATTERY</text>
+        <text x="340" y="178" class="info">1200mAh · 3.0–4.2V</text>
+
+        <!-- TP4056 → Battery -->
+        <line x1="250" y1="167" x2="290" y2="167" stroke="var(--red)" stroke-width="2"/>
+        <!-- Battery → Power bus -->
+        <line x1="340" y1="140" x2="340" y2="60" stroke="var(--red)" stroke-width="2"/>
+        <!-- Battery → Ground bus -->
+        <line x1="340" y1="195" x2="340" y2="240" stroke="var(--gray)" stroke-width="2"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- DIODE -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="430" y="30" width="80" height="45" class="box" style="stroke:var(--purple)"/>
+        <text x="470" y="52" class="title" style="font-size:11px">DIODE</text>
+        <text x="470" y="64" class="info" style="font-size:7px">1N5817 · −0.3V</text>
+
+        <!-- Bus → Diode → Bus -->
+        <line x1="410" y1="60" x2="430" y2="52" stroke="var(--red)" stroke-width="2"/>
+        <line x1="510" y1="52" x2="530" y2="60" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- CAPACITOR -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="560" y="30" width="80" height="45" class="box"/>
+        <text x="600" y="52" class="title" style="font-size:11px">CAP</text>
+        <text x="600" y="64" class="info" style="font-size:7px">100µF</text>
+
+        <!-- Bus → Cap → Bus (shown as vertical) -->
+        <!-- Cap connects between +V and GND -->
+        <line x1="600" y1="75" x2="600" y2="100" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="600" y1="30" x2="600" y2="60" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- Diode → Cap (on power bus) -->
+        <line x1="530" y1="60" x2="560" y2="60" stroke="var(--red)" stroke-width="2.5"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- ESP32 (center) -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="260" y="260" width="360" height="140" class="box" style="stroke:var(--cyan);stroke-width:2"/>
+        <text x="440" y="292" class="title" style="font-size:14px">🧠 ESP32 DevKit</text>
+        <text x="440" y="310" class="info">Main Controller</text>
+
+        <!-- Power → ESP32 (left side, 3V3) -->
+        <line x1="600" y1="100" x2="620" y2="100" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="620" y1="100" x2="620" y2="200" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="620" y1="200" x2="310" y2="200" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="310" y1="200" x2="310" y2="330" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="310" y1="330" x2="310" y2="260" stroke="var(--gray)" stroke-width="2"/>
+
+        <!-- Power from bus → ESP32 -->
+        <line x1="530" y1="60" x2="550" y2="60" stroke="var(--red)" stroke-width="2"/>
+        <line x1="550" y1="60" x2="550" y2="180" stroke="var(--red)" stroke-width="2"/>
+        <line x1="550" y1="180" x2="290" y2="180" stroke="var(--red)" stroke-width="2"/>
+        <line x1="290" y1="180" x2="290" y2="260" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- Left pins labels -->
+        <circle cx="290" cy="290" r="4" fill="var(--red)"/>
+        <text x="280" y="288" class="pin" text-anchor="end">3V3</text>
+        <circle cx="290" cy="320" r="4" fill="var(--gray)"/>
+        <text x="280" y="318" class="pin" text-anchor="end">GND</text>
+        <circle cx="290" cy="350" r="4" fill="var(--green)"/>
+        <text x="280" y="348" class="pin" text-anchor="end">GPIO 34</text>
+        <circle cx="290" cy="380" r="4" fill="var(--yellow)"/>
+        <text x="280" y="378" class="pin" text-anchor="end">GPIO 35</text>
+
+        <!-- Right pins labels -->
+        <circle cx="590" cy="290" r="4" fill="var(--red)"/>
+        <text x="600" y="288" class="pin">3V3</text>
+        <circle cx="590" cy="320" r="4" fill="var(--gray)"/>
+        <text x="600" y="318" class="pin">GND</text>
+        <circle cx="590" cy="350" r="4" fill="var(--cyan)"/>
+        <text x="600" y="348" class="pin">GPIO 22 (SCL)</text>
+        <circle cx="590" cy="380" r="4" fill="var(--cyan)"/>
+        <text x="600" y="378" class="pin">GPIO 21 (SDA)</text>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- LEFT: THERMISTOR CIRCUIT -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="30" y="260" width="180" height="120" class="box"/>
+        <text x="120" y="284" class="title">🌡️ TEMPERATURE</text>
+        <text x="120" y="300" class="info">10kΩ + NTC Thermistor</text>
+
+        <!-- Circuit diagram -->
+        <text x="60" y="325" class="pin">3V3</text>
+        <line x1="75" y1="322" x2="120" y2="322" stroke="var(--red)" stroke-width="1.5"/>
+        <text x="130" y="325" class="pin">10kΩ</text>
+        <line x1="160" y1="322" x2="170" y2="322" stroke="var(--green)" stroke-width="1.5"/>
+        <circle cx="170" cy="322" r="4" fill="var(--green)"/>
+        <text x="178" y="325" class="pin" style="fill:var(--green)">→ GPIO 34</text>
+
+        <line x1="170" y1="326" x2="170" y2="340" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="130" y="355" class="pin">NTC</text>
+        <line x1="160" y1="362" x2="170" y2="340" stroke="var(--green)" stroke-width="1.5"/>
+        <line x1="120" y1="362" x2="160" y2="362" stroke="var(--gray)" stroke-width="1.5"/>
+        <text x="75" y="365" class="pin">GND</text>
+        <line x1="60" y1="362" x2="120" y2="362" stroke="var(--gray)" stroke-width="1.5"/>
+
+        <!-- Thermistor → ESP32 -->
+        <line x1="170" y1="322" x2="210" y2="322" stroke="var(--green)" stroke-width="2"/>
+        <line x1="210" y1="322" x2="210" y2="350" stroke="var(--green)" stroke-width="2"/>
+        <line x1="210" y1="350" x2="290" y2="350" stroke="var(--green)" stroke-width="2"/>
+
+        <!-- Power to thermistor -->
+        <line x1="550" y1="180" x2="75" y2="180" stroke="var(--red)" stroke-width="2"/>
+        <line x1="75" y1="180" x2="75" y2="322" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- GND to thermistor -->
+        <line x1="60" y1="362" x2="60" y2="380" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="60" y1="380" x2="340" y2="380" stroke="var(--gray)" stroke-width="2"/>
+        <line x1="340" y1="380" x2="340" y2="240" stroke="var(--gray)" stroke-width="2"/>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- LEFT: VOLTAGE DIVIDER -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="30" y="410" width="180" height="100" class="box"/>
+        <text x="120" y="434" class="title">📊 VOLTAGE</text>
+        <text x="120" y="450" class="info">Two 100kΩ Resistors</text>
+
+        <!-- Circuit -->
+        <text x="60" y="475" class="pin">BATT+</text>
+        <line x1="85" y1="472" x2="120" y2="472" stroke="var(--red)" stroke-width="1.5"/>
+        <text x="130" y="475" class="pin">100kΩ</text>
+        <line x1="160" y1="472" x2="170" y2="472" stroke="var(--yellow)" stroke-width="1.5"/>
+        <circle cx="170" cy="472" r="4" fill="var(--yellow)"/>
+        <text x="178" y="475" class="pin" style="fill:var(--yellow)">→ GPIO 35</text>
+
+        <line x1="170" y1="476" x2="170" y2="490" stroke="var(--yellow)" stroke-width="1.5"/>
+        <text x="130" y="505" class="pin">100kΩ</text>
+        <line x1="160" y1="506" x2="170" y2="490" stroke="var(--yellow)" stroke-width="1.5"/>
+        <line x1="120" y1="506" x2="160" y2="506" stroke="var(--gray)" stroke-width="1.5"/>
+        <text x="75" y="509" class="pin">GND</text>
+        <line x1="60" y1="506" x2="120" y2="506" stroke="var(--gray)" stroke-width="1.5"/>
+
+        <!-- Battery+ to voltage divider -->
+        <line x1="340" y1="140" x2="340" y2="120" stroke="var(--red)" stroke-width="2"/>
+        <line x1="340" y1="120" x2="60" y2="120" stroke="var(--red)" stroke-width="2"/>
+        <line x1="60" y1="120" x2="60" y2="472" stroke="var(--red)" stroke-width="2"/>
+
+        <!-- Voltage divider → ESP32 -->
+        <line x1="170" y1="472" x2="220" y2="472" stroke="var(--yellow)" stroke-width="2"/>
+        <line x1="220" y1="472" x2="220" y2="380" stroke="var(--yellow)" stroke-width="2"/>
+        <line x1="220" y1="380" x2="290" y2="380" stroke="var(--yellow)" stroke-width="2"/>
+
+        <!-- GND from voltage divider -->
+        <line x1="60" y1="506" x2="60" y2="520" stroke="var(--gray)" stroke-width="2"/>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- RIGHT: I²C BUS (shared) -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SCL line -->
+        <line x1="590" y1="350" x2="680" y2="350" stroke="var(--cyan)" stroke-width="2"/>
+        <!-- SDA line -->
+        <line x1="590" y1="380" x2="680" y2="380" stroke="var(--cyan)" stroke-width="2"/>
+
+        <!-- Vertical bus -->
+        <line x1="680" y1="350" x2="680" y2="500" stroke="var(--cyan)" stroke-width="2"/>
+        <line x1="710" y1="380" x2="710" y2="500" stroke="var(--cyan)" stroke-width="2"/>
+
+        <!-- I²C label -->
+        <rect x="670" y="395" width="52" height="18" rx="4" fill="var(--bg)" stroke="var(--cyan)" stroke-width="1"/>
+        <text x="696" y="408" fill="var(--cyan)" font-size="7" text-anchor="middle">I²C BUS</text>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- OLED DISPLAY -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="750" y="260" width="120" height="80" class="box"/>
+        <text x="810" y="284" class="title">📺 OLED</text>
+        <text x="810" y="300" class="info">0.96" · 0x3C</text>
+        <text x="810" y="312" class="info">SSD1306 128×64</text>
+
+        <!-- Power to OLED -->
+        <line x1="810" y1="340" x2="810" y2="60" stroke="var(--red)" stroke-width="2"/>
+        <line x1="810" y1="340" x2="810" y2="360" stroke="var(--gray)" stroke-width="2"/>
+
+        <!-- I²C to OLED -->
+        <line x1="680" y1="350" x2="750" y2="310" stroke="var(--cyan)" stroke-width="2"/>
+        <line x1="710" y1="380" x2="750" y2="330" stroke="var(--cyan)" stroke-width="2"/>
+
+        <!-- Pin labels -->
+        <text x="755" y="315" class="pin" style="fill:var(--cyan)">SCL</text>
+        <text x="755" y="335" class="pin" style="fill:var(--cyan)">SDA</text>
+        <text x="755" y="355" class="pin" style="fill:var(--red)">VCC</text>
+        <text x="755" y="370" class="pin" style="fill:var(--gray)">GND</text>
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- BME680 SENSOR -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <rect x="750" y="430" width="120" height="85" class="box" style="stroke:var(--purple)"/>
+        <text x="810" y="454" class="title">🌡️ BME680</text>
+        <text x="810" y="470" class="info">Temp · Hum · Press</text>
+        <text x="810" y="482" class="info">Gas/VOC · 0x76</text>
+
+        <!-- Power to BME680 -->
+        <line x1="810" y1="515" x2="810" y2="520" stroke="var(--red)" stroke-width="2"/>
+        <line x1="810" y1="515" x2="810" y2="360" stroke="var(--gray)" stroke-width="2"/>
+
+        <!-- I²C to BME680 -->
+        <line x1="680" y1="470" x2="750" y2="460" stroke="var(--cyan)" stroke-width="2"/>
+        <line x1="710" y1="480" x2="750" y2="480" stroke="var(--cyan)" stroke-width="2"/>
+
+        <!-- Pin labels -->
+        <text x="755" y="465" class="pin" style="fill:var(--cyan)">SCL</text>
+        <text x="755" y="485" class="pin" style="fill:var(--cyan)">SDA</text>
+        <text x="755" y="500" class="pin" style="fill:var(--red)">VCC</text>
+        <text x="755" y="515" class="pin" style="fill:var(--gray)">GND</text>
+        <text x="755" y="530" class="pin" style="fill:var(--purple)">CS→VCC</text>
+        <text x="755" y="542" class="pin" style="fill:var(--purple)">SDO→GND</text>
+
+        <!-- Config pins -->
+        <line x1="750" y1="525" x2="735" y2="525" stroke="var(--purple)" stroke-width="1" stroke-dasharray="3,2"/>
+        <line x1="735" y1="525" x2="735" y2="495" stroke="var(--purple)" stroke-width="1" stroke-dasharray="3,2"/>
+        <line x1="735" y1="495" x2="750" y2="495" stroke="var(--purple)" stroke-width="1" stroke-dasharray="3,2"/>
+
+        <line x1="870" y1="540" x2="875" y2="540" stroke="var(--purple)" stroke-width="1" stroke-dasharray="3,2"/>
+        <line x1="875" y1="540" x2="875" y2="470" stroke="var(--purple)" stroke-width="1" stroke-dasharray="3,2"/>
+
+    </svg>
+
+    <!-- Connection table -->
+    <div class="note-box">
+        <h3>⚠️ BME680 Setup (Fix for communication error)</h3>
+        Make sure these config pins are connected — <strong>floating pins = no communication</strong>:<br>
+        <strong style="color:var(--purple)">CS</strong> → connect to 3V3 (enables I²C mode)<br>
+        <strong style="color:var(--purple)">SDO</strong> → connect to GND (sets address to 0x76)
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3 style="color:var(--red)">Power Chain</h3>
+            <ul>
+                <li>Solar → TP4056 IN+</li>
+                <li>TP4056 OUT+ → Battery+</li>
+                <li>Battery+ → Diode → Power bus</li>
+                <li>Cap, ESP32, OLED, BME680 all on bus</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3 style="color:var(--green)">Analog Inputs</h3>
+            <ul>
+                <li>10kΩ + NTC divider → GPIO 34</li>
+                <li>100kΩ + 100kΩ divider → GPIO 35</li>
+                <li>Both from 3V3 and GND rails</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3 style="color:var(--cyan)">I²C Bus (shared)</h3>
+            <ul>
+                <li>GPIO 22 (SCL) → OLED + BME680</li>
+                <li>GPIO 21 (SDA) → OLED + BME680</li>
+                <li>OLED = 0x3C, BME680 = 0x76</li>
+                <li>No address conflict</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3 style="color:var(--purple)">BME680 Pins</h3>
+            <ul>
+                <li>VCC → 3.3V</li>
+                <li>GND → Ground</li>
+                <li>SCL/SDA → I²C bus</li>
+                <li>CS → 3.3V (I²C mode)</li>
+                <li>SDO → GND (address 0x76)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+```
+
+## Simpler Structure
+
+The diagram now has:
+
+1. **Two horizontal buses** at the top (power + and ground −)
+2. **Power chain flows left → right** (Solar → TP4056 → Battery → Diode → Cap)
+3. **ESP32 in the center**
+4. **Analog sensors on the bottom-left** (clean circuit diagrams)
+5. **I²C devices on the bottom-right** (OLED and BME680 share one bus)
+
+For your BME680 error — did you try the I2C scanner? That will tell us if the sensor is wired correctly or if it's a code issue.
