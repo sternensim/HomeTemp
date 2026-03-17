@@ -194,18 +194,19 @@ display:
       // Pressure
       it.printf(0, 34, id(font_small), "P: %.0f hPa", id(press).state);
 
-      // IAQ Score with simple status bar
-      it.printf(0, 48, id(font_small), "IAQ: %.0f", id(iaq).state);
-
-      // IAQ status indicator
+      // IAQ Score with text label
       int iaq_val = (int)id(iaq).state;
+      const char *iaq_label;
       if (iaq_val < 50) {
-        it.rectangle(100, 48, 28, 6, COLOR_ON);
+        iaq_label = "Good";
       } else if (iaq_val < 100) {
-        it.filled_rectangle(100, 48, 28, 6, COLOR_ON);
+        iaq_label = "OK";
+      } else if (iaq_val < 200) {
+        iaq_label = "Bad";
       } else {
-        it.rectangle(100, 48, 10, 6, COLOR_ON);
+        iaq_label = "Poor";
       }
+      it.printf(0, 48, id(font_small), "IAQ: %.0f %s", id(iaq).state, iaq_label);
 
 # Deep sleep configuration
 # 30s awake (WiFi connect + sensor read + OLED update)
