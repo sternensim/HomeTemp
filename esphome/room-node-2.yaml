@@ -177,6 +177,7 @@ font:
 
 display:
   - platform: ssd1306_i2c
+    id: oled_display
     model: "SSD1306 128x64"
     address: 0x3C
     rotation: 0
@@ -213,6 +214,8 @@ deep_sleep:              # PATCHED OUT FOR DEBUGGING
   run_duration: 30s
   sleep_duration: 5min
   id: deep_sleep_control
+  on_sleep:
+     - display.turn_off: oled_display
 
 # Button to prevent sleep (useful for debugging)
 button:
