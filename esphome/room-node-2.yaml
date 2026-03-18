@@ -9,6 +9,7 @@ esphome:
     priority: 800
     then:
       - output.turn_on: ntc_power
+      - lambda: 'id(oled_display).turn_on();'
   on_shutdown:
     then:
       - output.turn_off: ntc_power
