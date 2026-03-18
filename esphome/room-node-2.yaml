@@ -9,6 +9,11 @@ esphome:
     priority: 800
     then:
       - output.turn_on: ntc_power
+  on_shutdown:
+    then:
+      - output.turn_off: ntc_power
+      - display.turn_off: oled_display
+      - delay: 100ms
 
 esp32:
   board: esp32dev
