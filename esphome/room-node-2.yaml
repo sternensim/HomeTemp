@@ -5,6 +5,10 @@
 esphome:
   name: bedroom
   friendly_name: Bedroom
+  on_boot:
+    priority: 800
+    then:
+      - output.turn_on: ntc_power
 
 esp32:
   board: esp32dev
@@ -86,7 +90,8 @@ sensor:
       accuracy_decimals: 1
 
   # LiPo temperature — NTC thermistor (white wire) on GPIO35
-  # Wiring: 3.3V → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
+  # Wiring: GPIO27 → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
+  # GPIO27 powers the divider — floats during deep sleep to save ~165 µA
   - platform: adc
     pin: GPIO35
     id: battery_temp_adc
@@ -216,7 +221,8 @@ deep_sleep:              # PATCHED OUT FOR DEBUGGING
   sleep_duration: 5min
   id: deep_sleep_control
   on_sleep:
-     - display.turn_off: oled_display
+    - output.turn_off: ntc_power
+    - display.turn_off: oled_display
 
 # Button to prevent sleep (useful for debugging)
 button:
@@ -226,6 +232,12 @@ button:
     name: "Bedroom Node Force Wake"
     on_press:
       - deep_sleep.prevent: deep_sleep_control
+
+# GPIO output to power NTC divider (off during deep sleep)
+output:
+  - platform: gpio
+    pin: GPIO27
+    id: ntc_power
 
 # Status LED — GPIO16 is safe; GPIO2 is a strapping pin
 status_led:
