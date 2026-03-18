@@ -10,6 +10,7 @@ esphome:
     then:
       - output.turn_on: ntc_power
       - lambda: 'id(oled_display).turn_on();'
+      - delay: 100ms
   on_shutdown:
     then:
       - output.turn_off: ntc_power
