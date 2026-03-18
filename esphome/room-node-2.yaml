@@ -223,6 +223,7 @@ deep_sleep:              # PATCHED OUT FOR DEBUGGING
   on_sleep:
     - output.turn_off: ntc_power
     - display.turn_off: oled_display
+    - delay: 100ms
 
 # Button to prevent sleep (useful for debugging)
 button:
