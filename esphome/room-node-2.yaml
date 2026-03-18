@@ -12,7 +12,7 @@ esphome:
   on_shutdown:
     then:
       - output.turn_off: ntc_power
-      - display.turn_off: oled_display
+      - lambda: 'id(oled_display).turn_off();'
       - delay: 100ms
 
 esp32:
@@ -225,10 +225,6 @@ deep_sleep:              # PATCHED OUT FOR DEBUGGING
   run_duration: 30s
   sleep_duration: 5min
   id: deep_sleep_control
-  on_sleep:
-    - output.turn_off: ntc_power
-    - display.turn_off: oled_display
-    - delay: 100ms
 
 # Button to prevent sleep (useful for debugging)
 button:
