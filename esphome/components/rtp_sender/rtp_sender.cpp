@@ -385,10 +385,25 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
   // Non-blocking send — drop the packet silently if the TCP buffer is full.
   // A dropped audio packet is harmless for BirdNET-Go (it buffers many frames).
   int sent = ::send(fd, rtp_buf_, frame_len, MSG_DONTWAIT);
-  if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-    // Real error — close socket immediately so mediamtx releases the session
-    // before we reconnect.  Just setting IDLE without closing leaked the fd.
-    ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
+  if (sent < 0) {
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      // Real error — close socket so mediamtx releases the session.
+      ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
+      int old = sock_.exchange(-1);
+      if (old >= 0) ::close(old);
+      state_.store(RtpState::IDLE);
+    }
+    // EAGAIN: buffer full, drop this packet. Advance the audio timeline
+    // but don't count it as sent (keeps RTCP SR accurate).
+    rtp_ts_ += static_cast<uint32_t>(n);
+    return;
+  }
+
+  if (static_cast<size_t>(sent) < frame_len) {
+    // Partial write — the TCP interleave framing is now corrupt because
+    // the next send_rtp_ will prepend a new '$' header mid-packet.
+    // mediamtx will misparse the remainder and see garbage payload types.
+    ESP_LOGW(TAG, "RTP partial send (%d/%u bytes), reconnecting", sent, (unsigned)frame_len);
     int old = sock_.exchange(-1);
     if (old >= 0) ::close(old);
     state_.store(RtpState::IDLE);
