@@ -2,13 +2,13 @@
 # Based on: https://github.com/Sukecz/birdnetgo-esp32-rtsp-mic
 #
 # Hardware: Generic ESP32-WROOM / ESP32-DevKit + ICS-43434 I2S MEMS microphone
-#   Wiring:
+#   Wiring (pin labels match the breakout board):
 #     ICS-43434 BCLK  → GPIO26
-#     ICS-43434 WS    → GPIO25
-#     ICS-43434 DOUT  → GPIO34  (input-only pin, perfect for mic data)
-#     ICS-43434 VDD   → 3V3
+#     ICS-43434 LRCL  → GPIO25   (word select / LRCLK)
+#     ICS-43434 DOUT  → GPIO34   (input-only pin, perfect for mic data)
+#     ICS-43434 3V    → 3V3
 #     ICS-43434 GND   → GND
-#     ICS-43434 L/R   → GND  (selects left channel)
+#     ICS-43434 SEL   → GND      (selects left channel)
 #
 # Audio is delivered to BirdNET-Go via RTSP:
 #   rtp_sender → RTSP ANNOUNCE → mediamtx:8554/bird → BirdNET-Go
@@ -73,7 +73,7 @@ microphone:
     i2s_din_pin: GPIO34     # SD / DOUT (input-only GPIO)
     adc_type: external
     pdm: false
-    channel: left           # L/R pin tied to GND → left channel
+    channel: left           # SEL pin tied to GND → left channel
     bits_per_sample: 32bit
     sample_rate: 48000      # ICS-43434 native rate, optimal for BirdNET-Go
 

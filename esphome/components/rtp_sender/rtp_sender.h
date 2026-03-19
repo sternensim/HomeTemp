@@ -65,6 +65,12 @@ class RtpSender : public Component {
   uint16_t rtp_seq_{0};
   uint32_t rtp_ts_{0};
   uint32_t ssrc_{0};
+  uint32_t rtp_packet_count_{0};
+  uint32_t rtp_octet_count_{0};
+
+  // RTCP Sender Report — keeps the mediamtx session alive
+  uint32_t last_rtcp_ms_{0};
+  static constexpr uint32_t RTCP_INTERVAL_MS = 5000;
 
   // Static buffers — no heap allocation in the audio path
   int16_t  pcm_buf_[MAX_SAMPLES];
@@ -83,6 +89,7 @@ class RtpSender : public Component {
   // Audio pipeline
   void on_mic_data_(const std::vector<uint8_t> &data);
   void send_rtp_(const int16_t *samples, size_t n, int fd);
+  void send_rtcp_sr_();
   void disconnect_();
 };
 

@@ -46,6 +46,17 @@ void RtpSender::dump_config() {
 
 void RtpSender::loop() {
   RtpState st = state_.load();
+
+  // Send periodic RTCP Sender Reports to keep the session alive
+  if (st == RtpState::RECORDING) {
+    uint32_t now = millis();
+    if (now - last_rtcp_ms_ >= RTCP_INTERVAL_MS) {
+      last_rtcp_ms_ = now;
+      send_rtcp_sr_();
+    }
+    return;
+  }
+
   if (st != RtpState::IDLE) return;
 
   uint32_t now = millis();
@@ -56,6 +67,7 @@ void RtpSender::loop() {
 
   if (rtsp_connect_() && rtsp_announce_() && rtsp_setup_() && rtsp_record_()) {
     state_.store(RtpState::RECORDING);
+    last_rtcp_ms_ = millis();
     ESP_LOGI(TAG, "RTSP publish active");
   } else {
     disconnect_();
@@ -81,7 +93,9 @@ void RtpSender::start_streaming() {
 // ─── RTSP handshake ───────────────────────────────────────────────────────────
 
 bool RtpSender::rtsp_connect_() {
-  sock_.store(-1);
+  // Close any leftover socket so mediamtx can clean up the old session
+  int old = sock_.exchange(-1);
+  if (old >= 0) ::close(old);
 
   int fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (fd < 0) {
@@ -372,13 +386,19 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
   // A dropped audio packet is harmless for BirdNET-Go (it buffers many frames).
   int sent = ::send(fd, rtp_buf_, frame_len, MSG_DONTWAIT);
   if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-    // Real error (including EBADF from race) — signal main loop to reconnect
+    // Real error — close socket immediately so mediamtx releases the session
+    // before we reconnect.  Just setting IDLE without closing leaked the fd.
     ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
+    int old = sock_.exchange(-1);
+    if (old >= 0) ::close(old);
     state_.store(RtpState::IDLE);
+    return;
   }
 
   rtp_seq_++;
   rtp_ts_ += static_cast<uint32_t>(n);  // clock ticks = samples (rate = sample_rate_)
+  rtp_packet_count_++;
+  rtp_octet_count_ += static_cast<uint32_t>(n * 2);  // bytes of L16 payload
 }
 
 void RtpSender::disconnect_() {
@@ -389,7 +409,57 @@ void RtpSender::disconnect_() {
   state_.store(RtpState::IDLE);
   cseq_  = 1;
   session_id_.clear();
+  rtp_packet_count_ = 0;
+  rtp_octet_count_  = 0;
   ESP_LOGW(TAG, "RTSP disconnected — retrying in %u s", RETRY_MS / 1000);
+}
+
+// ─── RTCP Sender Report ──────────────────────────────────────────────────────
+// Sent periodically on interleaved channel 1 so mediamtx knows the session
+// is alive and can correlate RTP timestamps with wall-clock time (RFC 3550 §6.4).
+
+void RtpSender::send_rtcp_sr_() {
+  int fd = sock_.load();
+  if (fd < 0) return;
+
+  uint8_t buf[4 + 28];  // RTSP interleave header (4) + RTCP SR (28)
+
+  // ── RTSP interleave header ──
+  buf[0] = '$';
+  buf[1] = 1;     // channel 1 = RTCP
+  buf[2] = 0;
+  buf[3] = 28;    // RTCP SR payload length
+
+  // ── RTCP SR fixed header ──
+  buf[4] = 0x80;  // V=2, P=0, RC=0
+  buf[5] = 200;   // PT = Sender Report
+  buf[6] = 0;
+  buf[7] = 6;     // length in 32-bit words minus 1: (28/4)-1
+
+  // SSRC
+  uint32_t v;
+  v = __builtin_bswap32(ssrc_);
+  ::memcpy(buf + 8, &v, 4);
+
+  // NTP timestamp — approximate, based on millis() since boot.
+  // Absolute accuracy is irrelevant; mediamtx just needs a monotonic pair.
+  uint32_t ms = millis();
+  v = __builtin_bswap32(ms / 1000);
+  ::memcpy(buf + 12, &v, 4);                     // NTP seconds
+  v = __builtin_bswap32((ms % 1000) * 4294967u); // NTP fraction
+  ::memcpy(buf + 16, &v, 4);
+
+  // RTP timestamp corresponding to the same instant
+  v = __builtin_bswap32(rtp_ts_);
+  ::memcpy(buf + 20, &v, 4);
+
+  // Cumulative packet & octet counts
+  v = __builtin_bswap32(rtp_packet_count_);
+  ::memcpy(buf + 24, &v, 4);
+  v = __builtin_bswap32(rtp_octet_count_);
+  ::memcpy(buf + 28, &v, 4);
+
+  ::send(fd, buf, sizeof(buf), MSG_DONTWAIT);
 }
 
 }  // namespace rtp_sender
