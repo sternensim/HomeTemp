@@ -240,11 +240,15 @@ bool RtpSender::rtsp_record_() {
   if (!tcp_send_blocking_(msg, ::strlen(msg)) || !rtsp_read_response_(response))
     return false;
 
-  // Switch socket to non-blocking so audio sends never stall the main loop
+  // Keep the socket blocking but apply a send timeout so the I2S task
+  // does not hang forever if the network stalls.  Audio callbacks run on
+  // a dedicated FreeRTOS task, so brief blocking is fine.
   int fd = sock_.load();
   if (fd >= 0) {
-    int flags = ::fcntl(fd, F_GETFL, 0);
-    ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    struct timeval tv = {0, 200000};  // 200 ms
+    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    int yes = 1;
+    ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
   }
   return true;
 }
@@ -391,32 +395,20 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
     dst[i * 2 + 1] = static_cast<uint8_t>(s & 0xFF);
   }
 
-  // Non-blocking send — drop the packet silently if the TCP buffer is full.
-  // A dropped audio packet is harmless for BirdNET-Go (it buffers many frames).
-  int sent = ::send(fd, rtp_buf_, frame_len, MSG_DONTWAIT);
-  if (sent < 0) {
-    if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      // Real error — close socket so mediamtx releases the session.
-      ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
+  // Blocking send with SO_SNDTIMEO — the I2S task can afford to wait
+  // briefly while the TCP stack flushes.  Loop handles partial writes.
+  size_t total = 0;
+  while (total < frame_len) {
+    int ret = ::send(fd, rtp_buf_ + total, frame_len - total, 0);
+    if (ret <= 0) {
+      ESP_LOGW(TAG, "RTP send error errno=%d after %u/%u bytes, will reconnect",
+               errno, (unsigned)total, (unsigned)frame_len);
       int old = sock_.exchange(-1);
       if (old >= 0) ::close(old);
       state_.store(RtpState::IDLE);
+      return;
     }
-    // EAGAIN: buffer full, drop this packet. Advance the audio timeline
-    // but don't count it as sent (keeps RTCP SR accurate).
-    rtp_ts_ += static_cast<uint32_t>(n);
-    return;
-  }
-
-  if (static_cast<size_t>(sent) < frame_len) {
-    // Partial write — the TCP interleave framing is now corrupt because
-    // the next send_rtp_ will prepend a new '$' header mid-packet.
-    // mediamtx will misparse the remainder and see garbage payload types.
-    ESP_LOGW(TAG, "RTP partial send (%d/%u bytes), reconnecting", sent, (unsigned)frame_len);
-    int old = sock_.exchange(-1);
-    if (old >= 0) ::close(old);
-    state_.store(RtpState::IDLE);
-    return;
+    total += ret;
   }
 
   rtp_seq_++;
@@ -483,7 +475,7 @@ void RtpSender::send_rtcp_sr_() {
   v = __builtin_bswap32(rtp_octet_count_);
   ::memcpy(buf + 28, &v, 4);
 
-  ::send(fd, buf, sizeof(buf), MSG_DONTWAIT);
+  ::send(fd, buf, sizeof(buf), 0);
 }
 
 }  // namespace rtp_sender
