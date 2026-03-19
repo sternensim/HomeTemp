@@ -240,16 +240,19 @@ bool RtpSender::rtsp_record_() {
   if (!tcp_send_blocking_(msg, ::strlen(msg)) || !rtsp_read_response_(response))
     return false;
 
-  // Keep the socket blocking but apply a send timeout so the I2S task
-  // does not hang forever if the network stalls.  Audio callbacks run on
-  // a dedicated FreeRTOS task, so brief blocking is fine.
+  // Non-blocking socket for audio sends — the I2S callback must never stall.
+  // TCP_NODELAY avoids Nagle coalescing.  Increase SO_SNDBUF for headroom.
   int fd = sock_.load();
   if (fd >= 0) {
-    struct timeval tv = {0, 200000};  // 200 ms
-    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    int flags = ::fcntl(fd, F_GETFL, 0);
+    ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     int yes = 1;
     ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
+    int sndbuf = 16384;
+    ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
   }
+  pending_offset_ = 0;
+  pending_len_ = 0;
   return true;
 }
 
@@ -352,69 +355,92 @@ void RtpSender::on_mic_data_(const std::vector<uint8_t> &data) {
 }
 
 void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
-  // Packet layout (all big-endian):
-  //   [0]    '$'          RTSP interleave marker
-  //   [1]    0            channel 0 = RTP data
-  //   [2-3]  length       RTP packet length in bytes (12 header + payload)
-  //   [4]    0x80         RTP: V=2, P=0, X=0, CC=0
-  //   [5]    96           RTP: M=0, PT=96 (dynamic L16/sample_rate_/1)
-  //   [6-7]  seq          RTP sequence number
-  //   [8-11] timestamp    RTP timestamp (increments by sample count)
-  //   [12-15] ssrc        Sync source ID
-  //   [16+]  payload      Big-endian signed 16-bit PCM samples
-
-  size_t payload_len = n * 2;
-  size_t rtp_len     = 12 + payload_len;
-  size_t frame_len   = 4  + rtp_len;
-
-  if (frame_len > RTP_BUF_SIZE) return;  // should never happen given RTP_MAX_SAMPLES
-
-  // RTSP interleave header
-  rtp_buf_[0] = '$';
-  rtp_buf_[1] = 0;
-  rtp_buf_[2] = static_cast<uint8_t>(rtp_len >> 8);
-  rtp_buf_[3] = static_cast<uint8_t>(rtp_len & 0xFF);
-
-  // RTP fixed header
-  rtp_buf_[4] = 0x80;
-  rtp_buf_[5] = 96;
-  rtp_buf_[6] = static_cast<uint8_t>(rtp_seq_ >> 8);
-  rtp_buf_[7] = static_cast<uint8_t>(rtp_seq_ & 0xFF);
-
-  uint32_t ts_be = __builtin_bswap32(rtp_ts_);
-  ::memcpy(rtp_buf_ + 8, &ts_be, 4);
-
-  uint32_t ssrc_be = __builtin_bswap32(ssrc_);
-  ::memcpy(rtp_buf_ + 12, &ssrc_be, 4);
-
-  // Payload: host-endian int16 → big-endian bytes
-  uint8_t *dst = rtp_buf_ + 16;
-  for (size_t i = 0; i < n; i++) {
-    int16_t s = samples[i];
-    dst[i * 2]     = static_cast<uint8_t>(s >> 8);
-    dst[i * 2 + 1] = static_cast<uint8_t>(s & 0xFF);
-  }
-
-  // Blocking send with SO_SNDTIMEO — the I2S task can afford to wait
-  // briefly while the TCP stack flushes.  Loop handles partial writes.
-  size_t total = 0;
-  while (total < frame_len) {
-    int ret = ::send(fd, rtp_buf_ + total, frame_len - total, 0);
-    if (ret <= 0) {
-      ESP_LOGW(TAG, "RTP send error errno=%d after %u/%u bytes, will reconnect",
-               errno, (unsigned)total, (unsigned)frame_len);
-      int old = sock_.exchange(-1);
-      if (old >= 0) ::close(old);
-      state_.store(RtpState::IDLE);
+  // ── Flush any leftover bytes from a previous partial write ──
+  // rtp_buf_ still holds the unsent tail — send it before overwriting.
+  while (pending_len_ > 0) {
+    int ret = ::send(fd, rtp_buf_ + pending_offset_, pending_len_, MSG_DONTWAIT);
+    if (ret > 0) {
+      pending_offset_ += ret;
+      pending_len_    -= ret;
+      continue;
+    }
+    if (ret < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      // Buffer still full — drop this new audio chunk, keep pending data
+      rtp_ts_ += static_cast<uint32_t>(n);
       return;
     }
-    total += ret;
+    // Real error — disconnect
+    goto fail;
   }
 
-  rtp_seq_++;
-  rtp_ts_ += static_cast<uint32_t>(n);  // clock ticks = samples (rate = sample_rate_)
-  rtp_packet_count_++;
-  rtp_octet_count_ += static_cast<uint32_t>(n * 2);  // bytes of L16 payload
+  {
+    // ── Build new RTP packet ──
+    size_t payload_len = n * 2;
+    size_t rtp_len     = 12 + payload_len;
+    size_t frame_len   = 4  + rtp_len;
+
+    if (frame_len > RTP_BUF_SIZE) return;
+
+    // RTSP interleave header
+    rtp_buf_[0] = '$';
+    rtp_buf_[1] = 0;
+    rtp_buf_[2] = static_cast<uint8_t>(rtp_len >> 8);
+    rtp_buf_[3] = static_cast<uint8_t>(rtp_len & 0xFF);
+
+    // RTP fixed header
+    rtp_buf_[4] = 0x80;
+    rtp_buf_[5] = 96;   // PT=96 (dynamic, matches SDP)
+    rtp_buf_[6] = static_cast<uint8_t>(rtp_seq_ >> 8);
+    rtp_buf_[7] = static_cast<uint8_t>(rtp_seq_ & 0xFF);
+
+    uint32_t ts_be = __builtin_bswap32(rtp_ts_);
+    ::memcpy(rtp_buf_ + 8, &ts_be, 4);
+    uint32_t ssrc_be = __builtin_bswap32(ssrc_);
+    ::memcpy(rtp_buf_ + 12, &ssrc_be, 4);
+
+    // Payload: host-endian int16 → big-endian (network order)
+    uint8_t *dst = rtp_buf_ + 16;
+    for (size_t i = 0; i < n; i++) {
+      int16_t s = samples[i];
+      dst[i * 2]     = static_cast<uint8_t>(s >> 8);
+      dst[i * 2 + 1] = static_cast<uint8_t>(s & 0xFF);
+    }
+
+    // ── Non-blocking send ──
+    int sent = ::send(fd, rtp_buf_, frame_len, MSG_DONTWAIT);
+    if (sent < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        // Buffer completely full — save entire frame for next callback
+        pending_offset_ = 0;
+        pending_len_    = frame_len;
+        rtp_seq_++;
+        rtp_ts_ += static_cast<uint32_t>(n);
+        rtp_packet_count_++;
+        rtp_octet_count_ += static_cast<uint32_t>(n * 2);
+        return;
+      }
+      goto fail;
+    }
+
+    if (static_cast<size_t>(sent) < frame_len) {
+      // Partial write — save the unsent tail for the next callback
+      pending_offset_ = sent;
+      pending_len_    = frame_len - sent;
+    }
+
+    rtp_seq_++;
+    rtp_ts_ += static_cast<uint32_t>(n);
+    rtp_packet_count_++;
+    rtp_octet_count_ += static_cast<uint32_t>(n * 2);
+    return;
+  }
+
+fail:
+  ESP_LOGW(TAG, "RTP send error errno=%d, will reconnect", errno);
+  int old = sock_.exchange(-1);
+  if (old >= 0) ::close(old);
+  state_.store(RtpState::IDLE);
+  pending_len_ = 0;
 }
 
 void RtpSender::disconnect_() {
@@ -427,6 +453,8 @@ void RtpSender::disconnect_() {
   session_id_.clear();
   rtp_packet_count_ = 0;
   rtp_octet_count_  = 0;
+  pending_offset_   = 0;
+  pending_len_      = 0;
   ESP_LOGW(TAG, "RTSP disconnected — retrying in %u s", RETRY_MS / 1000);
 }
 
@@ -475,7 +503,7 @@ void RtpSender::send_rtcp_sr_() {
   v = __builtin_bswap32(rtp_octet_count_);
   ::memcpy(buf + 28, &v, 4);
 
-  ::send(fd, buf, sizeof(buf), 0);
+  ::send(fd, buf, sizeof(buf), MSG_DONTWAIT);
 }
 
 }  // namespace rtp_sender

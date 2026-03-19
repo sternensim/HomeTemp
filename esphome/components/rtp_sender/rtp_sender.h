@@ -80,6 +80,12 @@ class RtpSender : public Component {
   int16_t  pcm_buf_[MAX_SAMPLES];
   uint8_t  rtp_buf_[RTP_BUF_SIZE];
 
+  // Partial-write tracking — if send() can't push the entire RTP frame
+  // in one call, we save the offset and flush the remainder on the next
+  // callback before building a new packet.
+  size_t pending_offset_{0};
+  size_t pending_len_{0};
+
   // RTSP handshake steps
   bool rtsp_connect_();
   bool rtsp_announce_();
