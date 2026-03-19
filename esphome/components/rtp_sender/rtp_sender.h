@@ -10,12 +10,16 @@
 namespace esphome {
 namespace rtp_sender {
 
-// Maximum samples per audio callback chunk (512 is typical for ESPHome I2S).
-// Sized for 1024 to be safe. At 48 kHz that is ~21 ms per packet.
+// Maximum samples the I2S callback can deliver per chunk.
+// 1024 covers the largest typical ESPHome DMA buffer.
 static constexpr size_t MAX_SAMPLES = 1024;
 
-// RTSP interleave header (4) + RTP fixed header (12) + payload (MAX_SAMPLES * 2 bytes)
-static constexpr size_t RTP_BUF_SIZE = 4 + 12 + MAX_SAMPLES * 2;
+// Maximum samples per RTP packet — keeps the RTP packet ≤ 1440 bytes
+// (mediamtx limit).  700 samples × 2 bytes = 1400 payload + 12 header = 1412.
+static constexpr size_t RTP_MAX_SAMPLES = 700;
+
+// RTSP interleave header (4) + RTP fixed header (12) + payload
+static constexpr size_t RTP_BUF_SIZE = 4 + 12 + RTP_MAX_SAMPLES * 2;
 
 enum class RtpState : uint8_t {
   IDLE,        // waiting / retry back-off

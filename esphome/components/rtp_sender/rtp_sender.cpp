@@ -335,7 +335,16 @@ void RtpSender::on_mic_data_(const std::vector<uint8_t> &data) {
     pcm_buf_[i] = static_cast<int16_t>(src[i] >> 16);
   }
 
-  send_rtp_(pcm_buf_, n, fd);
+  // Split into packets of at most RTP_MAX_SAMPLES to stay under mediamtx's
+  // 1440-byte RTP packet limit.
+  size_t offset = 0;
+  while (offset < n) {
+    size_t chunk = n - offset;
+    if (chunk > RTP_MAX_SAMPLES) chunk = RTP_MAX_SAMPLES;
+    send_rtp_(pcm_buf_ + offset, chunk, fd);
+    if (state_.load() != RtpState::RECORDING) break;  // send_rtp_ triggered reconnect
+    offset += chunk;
+  }
 }
 
 void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
@@ -354,7 +363,7 @@ void RtpSender::send_rtp_(const int16_t *samples, size_t n, int fd) {
   size_t rtp_len     = 12 + payload_len;
   size_t frame_len   = 4  + rtp_len;
 
-  if (frame_len > RTP_BUF_SIZE) return;  // should never happen given MAX_SAMPLES
+  if (frame_len > RTP_BUF_SIZE) return;  // should never happen given RTP_MAX_SAMPLES
 
   // RTSP interleave header
   rtp_buf_[0] = '$';
