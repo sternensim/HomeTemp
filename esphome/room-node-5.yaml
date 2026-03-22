@@ -1,0 +1,106 @@
+# ESPHome Configuration — Room Node 5 (Bedroom 2)
+# Hardware: ESP32 + AHT20 + ENS160
+# AHT20 handles temp/humidity, ENS160 handles eCO2/TVOC/AQI
+
+esphome:
+  name: bedroom2
+  friendly_name: Bedroom 2
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# WiFi connectivity
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback AP if WiFi connection fails
+  ap:
+    ssid: "ESPHome-Node-5-Fallback"
+    password: "esphome123"
+
+captive_portal:
+
+# Native Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+
+# Over-the-air firmware updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Logging
+logger:
+  level: INFO
+
+# I2C bus for AHT20 + ENS160
+# Wiring:
+#   ESP32 GPIO21 (SDA) ——> AHT20 SDA + ENS160 SDA
+#   ESP32 GPIO22 (SCL) ——> AHT20 SCL + ENS160 SCL
+#   ESP32 3.3V         ——> AHT20 VIN + ENS160 VIN
+#   ESP32 GND           ——> AHT20 GND + ENS160 GND
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+  frequency: 400kHz
+
+# Sensor definitions
+sensor:
+  # AHT20 temperature & humidity sensor (I2C address: 0x38)
+  - platform: aht10
+    variant: AHT20
+    temperature:
+      name: "Bedroom 2 Temperature"
+      id: temp
+      accuracy_decimals: 1
+    humidity:
+      name: "Bedroom 2 Humidity"
+      id: humid
+      accuracy_decimals: 1
+    update_interval: 60s
+
+  # ENS160 air quality sensor (eCO2, TVOC, AQI)
+  # I2C address: 0x53 (default) — no conflict with AHT20 (0x38)
+  # Compensated with AHT20 temperature and humidity for better accuracy
+  - platform: ens160
+    address: 0x53
+    eco2:
+      name: "Bedroom 2 eCO2"
+      id: eco2
+      accuracy_decimals: 0
+    tvoc:
+      name: "Bedroom 2 TVOC"
+      id: tvoc
+      accuracy_decimals: 0
+    aqi:
+      name: "Bedroom 2 AQI"
+      id: aqi
+    compensation:
+      temperature: temp
+      humidity: humid
+    update_interval: 60s
+
+  # WiFi signal strength
+  - platform: wifi_signal
+    name: "Bedroom 2 WiFi Signal"
+    update_interval: 60s
+
+  # Uptime tracker
+  - platform: uptime
+    name: "Bedroom 2 Uptime"
+
+# Restart button
+button:
+  - platform: restart
+    name: "Bedroom 2 Restart"
+
+# Status LED — GPIO16
+status_led:
+  pin:
+    number: GPIO16
+    inverted: false
