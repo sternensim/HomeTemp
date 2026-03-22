@@ -5,6 +5,10 @@
 esphome:
   name: bedroom2
   friendly_name: Bedroom 2
+  on_boot:
+    priority: 600
+    then:
+      - delay: 500ms
 
 esp32:
   board: esp32dev
