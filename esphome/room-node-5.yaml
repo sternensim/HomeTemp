@@ -67,7 +67,7 @@ sensor:
   # ENS160 air quality sensor (eCO2, TVOC, AQI)
   # I2C address: 0x53 (default) — no conflict with AHT20 (0x38)
   # Compensated with AHT20 temperature and humidity for better accuracy
-  - platform: ens160
+  - platform: ens160_i2c
     address: 0x53
     eco2:
       name: "Bedroom 2 eCO2"
