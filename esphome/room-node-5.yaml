@@ -72,7 +72,7 @@ sensor:
   # I2C address: 0x53 (default) — no conflict with AHT20 (0x38)
   # Compensated with AHT20 temperature and humidity for better accuracy
   - platform: ens160_i2c
-    address: 0x53
+    address: 0x52
     eco2:
       name: "Bedroom 2 eCO2"
       id: eco2
