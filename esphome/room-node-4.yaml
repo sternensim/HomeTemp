@@ -1,10 +1,11 @@
-# ESPHome Configuration — Room Node 3 (Kitchen)
-# Hardware: ESP32 + BME680 + SSD1306 OLED + TP4056 charging
+# ESPHome Configuration — Room Node 4 (Office)
+# Hardware: ESP32 + BME680 + ENS160 + SSD1306 OLED + TP4056 charging
+# ENS160 handles eCO2/TVOC/AQI (purpose-built), BME680 handles temp/humidity/pressure/IAQ
 # Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensors)
 
 esphome:
-  name: kitchen
-  friendly_name: Kitchen
+  name: office
+  friendly_name: Office
   on_boot:
     priority: 800
     then:
@@ -22,7 +23,7 @@ wifi:
 
   # Fallback AP if WiFi connection fails
   ap:
-    ssid: "ESPHome-Kitchen-Fallback"
+    ssid: "ESPHome-Node-4-Fallback"
     password: "esphome123"
 
 captive_portal:
@@ -41,14 +42,14 @@ ota:
 logger:
   level: INFO
 
-# I2C bus for BME680 + OLED (GPIO21=SDA, GPIO22=SCL)
+# I2C bus for BME680 + ENS160 + OLED (GPIO21=SDA, GPIO22=SCL)
 i2c:
   sda: GPIO21
   scl: GPIO22
   scan: true
   frequency: 400kHz
 
-# BME680 environmental sensor
+# BME680 environmental sensor (temp, humidity, pressure, IAQ)
 bme680_bsec:
   address: 0x77
   temperature_offset: 2.0
@@ -60,34 +61,47 @@ bme680_bsec:
 sensor:
   - platform: bme680_bsec
     temperature:
-      name: "Kitchen Temperature"
+      name: "Office Temperature"
       id: temp
       accuracy_decimals: 1
       filters:
         - offset: 0.0
     pressure:
-      name: "Kitchen Pressure"
+      name: "Office Pressure"
       id: press
       accuracy_decimals: 1
     humidity:
-      name: "Kitchen Humidity"
+      name: "Office Humidity"
       id: humid
       accuracy_decimals: 1
     gas_resistance:
-      name: "Kitchen Gas Resistance"
+      name: "Office Gas Resistance"
       id: gas_res
     iaq:
-      name: "Kitchen IAQ Score"
+      name: "Office IAQ Score"
       id: iaq
       accuracy_decimals: 0
-    co2_equivalent:
-      name: "Kitchen CO2 Equivalent"
-      id: co2_eq
-      accuracy_decimals: 1
-    breath_voc_equivalent:
-      name: "Kitchen VOC Equivalent"
-      id: voc_eq
-      accuracy_decimals: 1
+
+  # ENS160 air quality sensor (eCO2, TVOC, AQI)
+  # I2C address: 0x53 (default) — no conflict with BME680 (0x77) or OLED (0x3C)
+  # Compensated with BME680 temperature and humidity for better accuracy
+  - platform: ens160
+    address: 0x53
+    eco2:
+      name: "Office eCO2"
+      id: eco2
+      accuracy_decimals: 0
+    tvoc:
+      name: "Office TVOC"
+      id: tvoc
+      accuracy_decimals: 0
+    aqi:
+      name: "Office AQI"
+      id: aqi
+    compensation:
+      temperature: temp
+      humidity: humid
+    update_interval: 60s
 
   # LiPo temperature — NTC thermistor (white wire) on GPIO35
   # Wiring: GPIO27 → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
@@ -109,7 +123,7 @@ sensor:
 
   - platform: ntc
     sensor: battery_temp_resistance
-    name: "Kitchen Battery Temperature"
+    name: "Office Battery Temperature"
     id: battery_temp
     accuracy_decimals: 1
     device_class: temperature
@@ -123,7 +137,7 @@ sensor:
   # Median filter removed — deep sleep means only 1 sample per wake cycle
   - platform: adc
     pin: GPIO34
-    name: "Kitchen Battery Voltage"
+    name: "Office Battery Voltage"
     id: battery_voltage
     update_interval: 60s
     attenuation: 11db
@@ -136,7 +150,7 @@ sensor:
 
   # Battery percentage derived from voltage (3.0V=0%, 4.2V=100%)
   - platform: template
-    name: "Kitchen Battery"
+    name: "Office Battery"
     id: battery_pct
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -151,18 +165,18 @@ sensor:
 
   # WiFi signal strength
   - platform: wifi_signal
-    name: "Kitchen Node WiFi Signal"
+    name: "Office Node WiFi Signal"
     update_interval: 60s
 
   # Uptime tracker
   - platform: uptime
-    name: "Kitchen Node Uptime"
+    name: "Office Node Uptime"
 
 # Text sensor for IAQ classification
 text_sensor:
   - platform: bme680_bsec
     iaq_accuracy:
-      name: "Kitchen IAQ Accuracy"
+      name: "Office IAQ Accuracy"
 
 # OLED display (SSD1306, 128x64 pixels)
 # bpp: 1 — SSD1306 is monochrome, bpp:4 causes render errors
@@ -190,14 +204,11 @@ display:
     brightness: 100%
     lambda: |-
       // Title + battery %
-      it.printf(0, 0, id(font_medium), "Kitchen");
+      it.printf(0, 0, id(font_medium), "Office");
       it.printf(90, 4, id(font_small), "%.0f%%", id(battery_pct).state);
 
       // Temperature and Humidity on one line
       it.printf(0, 20, id(font_small), "%.1f°C  %.0f%%", id(temp).state, id(humid).state);
-
-      // Pressure
-      it.printf(0, 34, id(font_small), "P: %.0f hPa", id(press).state);
 
       // IAQ Score with text label
       int iaq_val = (int)id(iaq).state;
@@ -211,27 +222,30 @@ display:
       } else {
         iaq_label = "Poor";
       }
-      it.printf(0, 48, id(font_small), "IAQ: %.0f %s", id(iaq).state, iaq_label);
+      it.printf(0, 34, id(font_small), "IAQ: %.0f %s", id(iaq).state, iaq_label);
+
+      // ENS160 eCO2 + TVOC
+      it.printf(0, 48, id(font_small), "CO2:%dppm TVOC:%d", (int)id(eco2).state, (int)id(tvoc).state);
 
 # Deep sleep configuration
 # 30s awake (WiFi connect + sensor read + OLED update)
 # 5min sleep between readings
-deep_sleep:              # PATCHED OUT FOR DEBUGGING
-  run_duration: 30s
-  sleep_duration: 5min
-  id: deep_sleep_control
-  on_sleep:
-    - output.turn_off: ntc_power
-    - display.turn_off: oled_display
+# deep_sleep:              # PATCHED OUT FOR DEBUGGING
+#   run_duration: 30s
+#   sleep_duration: 5min
+#   id: deep_sleep_control
+#   on_sleep:
+#     - output.turn_off: ntc_power
+#     - display.turn_off: oled_display
 
 # Button to prevent sleep (useful for debugging)
 button:
   - platform: restart
-    name: "Kitchen Node Restart"
-  - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
-    name: "Kitchen Node Force Wake"
-    on_press:
-      - deep_sleep.prevent: deep_sleep_control
+    name: "Office Node Restart"
+  # - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
+  #   name: "Office Node Force Wake"
+  #   on_press:
+  #     - deep_sleep.prevent: deep_sleep_control
 
 # GPIO output to power NTC divider (off during deep sleep)
 output:

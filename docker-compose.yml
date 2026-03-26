@@ -51,6 +51,20 @@ services:
       retries: 3
       start_period: 40s
 
+  # Mosquitto — MQTT broker
+  mosquitto:
+    image: ghcr.io/eclipse-mosquitto/mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - homeautomation
+
   # mediamtx — lightweight RTSP broker
   # Receives raw RTP audio from the ESP32 bird microphone and re-exposes
   # it as an RTSP stream that BirdNET-Go can subscribe to.
