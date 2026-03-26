@@ -1,19 +1,17 @@
-# ESPHome Configuration — Room Node 2 (Bedroom)
-# Hardware: ESP32 + BME680 + SSD1306 OLED + TP4056 charging
+# ESPHome Configuration — Room Node 2 (Bathroom)
+# Hardware: ESP32 + BME680 + SSD1306 OLED
 # Update interval: 5 minutes (sleep 5min, awake 30s for WiFi + sensors)
 
 esphome:
-  name: bedroom
-  friendly_name: Bedroom
+  name: bathroom
+  friendly_name: Bathroom
   on_boot:
     priority: 800
     then:
-      - output.turn_on: ntc_power
       - lambda: 'id(oled_display).turn_on();'
       - delay: 100ms
   on_shutdown:
     then:
-      - output.turn_off: ntc_power
       - lambda: 'id(oled_display).turn_off();'
       - delay: 100ms
 
@@ -29,7 +27,7 @@ wifi:
 
   # Fallback AP if WiFi connection fails
   ap:
-    ssid: "ESPHome-Bedroom-Fallback"
+    ssid: "ESPHome-Bathroom-Fallback"
     password: "esphome123"
 
 captive_portal:
@@ -67,109 +65,49 @@ bme680_bsec:
 sensor:
   - platform: bme680_bsec
     temperature:
-      name: "Bedroom Temperature"
+      name: "Bathroom Temperature"
       id: temp
       accuracy_decimals: 1
       filters:
         - offset: 0.0
     pressure:
-      name: "Bedroom Pressure"
+      name: "Bathroom Pressure"
       id: press
       accuracy_decimals: 1
     humidity:
-      name: "Bedroom Humidity"
+      name: "Bathroom Humidity"
       id: humid
       accuracy_decimals: 1
     gas_resistance:
-      name: "Bedroom Gas Resistance"
+      name: "Bathroom Gas Resistance"
       id: gas_res
     iaq:
-      name: "Bedroom IAQ Score"
+      name: "Bathroom IAQ Score"
       id: iaq
       accuracy_decimals: 0
     co2_equivalent:
-      name: "Bedroom CO2 Equivalent"
+      name: "Bathroom CO2 Equivalent"
       id: co2_eq
       accuracy_decimals: 1
     breath_voc_equivalent:
-      name: "Bedroom VOC Equivalent"
+      name: "Bathroom VOC Equivalent"
       id: voc_eq
       accuracy_decimals: 1
 
-  # LiPo temperature — NTC thermistor (white wire) on GPIO35
-  # Wiring: GPIO27 → 10kΩ fixed resistor → GPIO35 → white wire (NTC inside LiPo → GND)
-  # GPIO27 powers the divider — floats during deep sleep to save ~165 µA
-  - platform: adc
-    pin: GPIO35
-    id: battery_temp_adc
-    update_interval: 60s
-    attenuation: 11db
-    internal: true
-
-  - platform: resistance
-    id: battery_temp_resistance
-    sensor: battery_temp_adc
-    configuration: DOWNSTREAM       # NTC is between GPIO35 and GND
-    resistor: 10000                  # 10kΩ fixed pull-up resistor (ohms)
-    reference_voltage: 3.3V
-    internal: true
-
-  - platform: ntc
-    sensor: battery_temp_resistance
-    name: "Bedroom Battery Temperature"
-    id: battery_temp
-    accuracy_decimals: 1
-    device_class: temperature
-    state_class: measurement
-    calibration:
-      b_constant: 3950              # adjust to 3435 if readings are off
-      reference_temperature: 25°C
-      reference_resistance: 10000  # NTC nominal resistance at 25°C (ohms)
-
-  # Battery voltage via voltage divider on GPIO34 (100kΩ + 100kΩ, multiply x2)
-  # Median filter removed — deep sleep means only 1 sample per wake cycle
-  - platform: adc
-    pin: GPIO34
-    name: "Bedroom Battery Voltage"
-    id: battery_voltage
-    update_interval: 60s
-    attenuation: 11db
-    filters:
-      - multiply: 2.0              # compensate for 1:1 voltage divider
-    unit_of_measurement: "V"
-    accuracy_decimals: 2
-    device_class: voltage
-    state_class: measurement
-
-  # Battery percentage derived from voltage (3.0V=0%, 4.2V=100%)
-  - platform: template
-    name: "Bedroom Battery"
-    id: battery_pct
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    device_class: battery
-    state_class: measurement
-    lambda: |-
-      float v = id(battery_voltage).state;
-      if (v >= 4.2) return 100.0;
-      if (v <= 3.0) return 0.0;
-      return (v - 3.0) / 1.2 * 100.0;
-    update_interval: 60s
-
   # WiFi signal strength
   - platform: wifi_signal
-    name: "Bedroom Node WiFi Signal"
+    name: "Bathroom Node WiFi Signal"
     update_interval: 60s
 
   # Uptime tracker
   - platform: uptime
-    name: "Bedroom Node Uptime"
+    name: "Bathroom Node Uptime"
 
 # Text sensor for IAQ classification
 text_sensor:
   - platform: bme680_bsec
     iaq_accuracy:
-      name: "Bedroom IAQ Accuracy"
+      name: "Bathroom IAQ Accuracy"
 
 # OLED display (SSD1306, 128x64 pixels)
 # bpp: 1 — SSD1306 is monochrome, bpp:4 causes render errors
@@ -196,9 +134,8 @@ display:
     update_interval: 5s
     brightness: 100%
     lambda: |-
-      // Title + battery %
-      it.printf(0, 0, id(font_medium), "Bedroom");
-      it.printf(90, 4, id(font_small), "%.0f%%", id(battery_pct).state);
+      // Title
+      it.printf(0, 0, id(font_medium), "Bathroom");
 
       // Temperature and Humidity on one line
       it.printf(0, 20, id(font_small), "%.1f°C  %.0f%%", id(temp).state, id(humid).state);
@@ -231,17 +168,11 @@ deep_sleep:              # PATCHED OUT FOR DEBUGGING
 # Button to prevent sleep (useful for debugging)
 button:
   - platform: restart
-    name: "Bedroom Node Restart"
+    name: "Bathroom Node Restart"
   - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
-    name: "Bedroom Node Force Wake"
+    name: "Bathroom Node Force Wake"
     on_press:
       - deep_sleep.prevent: deep_sleep_control
-
-# GPIO output to power NTC divider (off during deep sleep)
-output:
-  - platform: gpio
-    pin: GPIO27
-    id: ntc_power
 
 # Status LED — GPIO16 is safe; GPIO2 is a strapping pin
 status_led:
