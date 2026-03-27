@@ -78,7 +78,7 @@ binary_sensor:
     id: desk_presence
     device_class: occupancy
     lambda: |-
-      return id(desk_moving_energy).state > 60 ||
+      return id(desk_moving_energy).state > 90 ||
              (id(desk_still).state && id(desk_still_energy).state > 70);
 
 sensor:
