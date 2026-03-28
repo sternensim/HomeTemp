@@ -160,19 +160,19 @@ display:
 # Deep sleep configuration
 # 30s awake (WiFi connect + sensor read + OLED update)
 # 5min sleep between readings
-deep_sleep:              # PATCHED OUT FOR DEBUGGING
-  run_duration: 30s
-  sleep_duration: 5min
-  id: deep_sleep_control
+# deep_sleep:              # PATCHED OUT FOR DEBUGGING
+#   run_duration: 30s
+#   sleep_duration: 5min
+#   id: deep_sleep_control
 
 # Button to prevent sleep (useful for debugging)
 button:
   - platform: restart
     name: "Bathroom Node Restart"
-  - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
-    name: "Bathroom Node Force Wake"
-    on_press:
-      - deep_sleep.prevent: deep_sleep_control
+  # - platform: template      # PATCHED OUT FOR DEBUGGING (deep_sleep disabled)
+  #   name: "Bathroom Node Force Wake"
+  #   on_press:
+  #     - deep_sleep.prevent: deep_sleep_control
 
 # Status LED — GPIO16 is safe; GPIO2 is a strapping pin
 status_led:
