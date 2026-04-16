@@ -28,7 +28,7 @@ wifi:
 
   ap:
     ssid: "ESPHome-Desk-Fallback"
-    password: "esphome123"
+    password: !secret ap_password
 
 captive_portal:
 
@@ -51,6 +51,11 @@ uart:
   baud_rate: 256000
   parity: NONE
   stop_bits: 1
+  debug:
+    direction: BOTH
+    dummy_receiver: false
+    after:
+      delimiter: [0xF8, 0xF7, 0xF6, 0xF5]
 
 # LD2410C mmWave presence sensor
 ld2410:
@@ -78,8 +83,8 @@ binary_sensor:
     id: desk_presence
     device_class: occupancy
     lambda: |-
-      return id(desk_moving_energy).state > 90 ||
-             (id(desk_still).state && id(desk_still_energy).state > 70);
+      return id(desk_moving_energy).state > id(moving_energy_threshold).state ||
+             (id(desk_still).state && id(desk_still_energy).state > id(still_energy_threshold).state);
 
 sensor:
   # Distance and energy readings for tuning detection zones
@@ -120,6 +125,82 @@ number:
       name: "Desk Max Move Distance"
     max_still_distance_gate:
       name: "Desk Max Still Distance"
+    g0_move_threshold:
+      name: "Desk Gate 0 Move Threshold"
+      entity_category: config
+    g1_move_threshold:
+      name: "Desk Gate 1 Move Threshold"
+      entity_category: config
+    g2_move_threshold:
+      name: "Desk Gate 2 Move Threshold"
+      entity_category: config
+    g3_move_threshold:
+      name: "Desk Gate 3 Move Threshold"
+      entity_category: config
+    g4_move_threshold:
+      name: "Desk Gate 4 Move Threshold"
+      entity_category: config
+    g5_move_threshold:
+      name: "Desk Gate 5 Move Threshold"
+      entity_category: config
+    g6_move_threshold:
+      name: "Desk Gate 6 Move Threshold"
+      entity_category: config
+    g7_move_threshold:
+      name: "Desk Gate 7 Move Threshold"
+      entity_category: config
+    g8_move_threshold:
+      name: "Desk Gate 8 Move Threshold"
+      entity_category: config
+    g0_still_threshold:
+      name: "Desk Gate 0 Still Threshold"
+      entity_category: config
+    g1_still_threshold:
+      name: "Desk Gate 1 Still Threshold"
+      entity_category: config
+    g2_still_threshold:
+      name: "Desk Gate 2 Still Threshold"
+      entity_category: config
+    g3_still_threshold:
+      name: "Desk Gate 3 Still Threshold"
+      entity_category: config
+    g4_still_threshold:
+      name: "Desk Gate 4 Still Threshold"
+      entity_category: config
+    g5_still_threshold:
+      name: "Desk Gate 5 Still Threshold"
+      entity_category: config
+    g6_still_threshold:
+      name: "Desk Gate 6 Still Threshold"
+      entity_category: config
+    g7_still_threshold:
+      name: "Desk Gate 7 Still Threshold"
+      entity_category: config
+    g8_still_threshold:
+      name: "Desk Gate 8 Still Threshold"
+      entity_category: config
+
+  - platform: template
+    name: "Desk Moving Energy Min"
+    id: moving_energy_threshold
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 90
+    restore_value: true
+    optimistic: true
+    entity_category: config
+
+  - platform: template
+    name: "Desk Still Energy Min"
+    id: still_energy_threshold
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 70
+    restore_value: true
+    optimistic: true
+    entity_category: config
 
 button:
   - platform: restart
@@ -132,11 +213,17 @@ button:
     restart:
       name: "LD2410C Restart"
       entity_category: diagnostic
+    query_parameters:
+      name: "LD2410C Get Config"
+      entity_category: diagnostic
 
 select:
   - platform: ld2410
     distance_resolution:
       name: "Desk Distance Resolution"
+      entity_category: config
+    baud_rate:
+      name: "LD2410C Baud Rate"
       entity_category: config
 
 text_sensor:
