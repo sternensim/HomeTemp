@@ -7,8 +7,8 @@ logLevel: info
 
 # RTSP server — only TCP needed; UDP RTSP disabled to reduce attack surface
 rtspAddress: :8554
-rtspEncryption: false
-rtspAuthMethods: []
+rtspEncryption: "no"
+rtspAuthMethods: [basic]
 
 # Stream paths
 paths:
@@ -16,9 +16,26 @@ paths:
     # 'publisher' = wait for a client to ANNOUNCE + RECORD the stream.
     # The ESPHome rtp_sender component does exactly this on boot.
     source: publisher
+    runOnInit: >-
+      ffmpeg -re
+      -rw_timeout 60000000
+      -reconnect 1
+      -reconnect_streamed 1
+      -reconnect_delay_max 30
+      -f wav -i http://192.168.2.180:80/stream
+      -c:a libopus
+      -ar 48000
+      -ac 1
+      -b:a 64k
+      -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: true
 
     # Keep the path active even when no publisher is connected so BirdNET-Go
     # can connect early without getting a 404.
     sourceOnDemand: false
 
-
+    # No auth required (internal Docker network only)
+    #publishUser: ""
+    #publishPass: ""
+    #readUser: ""
+    #readPass: ""
