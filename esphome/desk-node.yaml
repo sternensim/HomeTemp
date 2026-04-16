@@ -159,7 +159,7 @@ button:
     restart:
       name: "LD2410C Restart"
       entity_category: diagnostic
-    query_parameters:
+    query_params:
       name: "LD2410C Get Config"
       entity_category: diagnostic
 
