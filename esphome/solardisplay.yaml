@@ -107,10 +107,9 @@ sensor:
     on_value:
       - lambda: |-
           char buf[10];
-          if (x >= 1000.0f) snprintf(buf, sizeof(buf), "%.1f", x / 1000.0f);
-          else              snprintf(buf, sizeof(buf), "%d",   (int)x);
+          snprintf(buf, sizeof(buf), "%.1f", x);
           lv_label_set_text(id(lbl_forecast_val),  buf);
-          lv_label_set_text(id(lbl_forecast_unit),  "kW");
+          lv_label_set_text(id(lbl_forecast_unit), "kWh");
 
 # ─── SPI Bus ──────────────────────────────────────────────────────────────────
 spi:
@@ -320,6 +319,6 @@ lvgl:
                   id: lbl_forecast_unit
                   align: top_mid
                   y: 74
-                  text: ""
+                  text: "kWh"
                   text_font: montserrat_14
                   text_color: 0xff9922
