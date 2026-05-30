@@ -144,6 +144,7 @@ display:
     model: ILI9341
     cs_pin: GPIO15
     dc_pin: GPIO2
+    invert_colors: false
     # Try rotation: 270 if the image appears mirrored
     rotation: 90
     update_interval: 10s
