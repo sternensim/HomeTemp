@@ -161,7 +161,7 @@ display:
       it.print(W/2, 18, id(fnt_md), id(col_white), TextAlign::CENTER,
                "HOME ENERGY MONITOR");
       it.strftime(W-4, 18, id(fnt_sm), id(col_gray), TextAlign::CENTER_RIGHT,
-                  "%H:%M", id(ha_time).now());
+                  "%H:%M", id(homeassistant_time).now());
 
       // ── Card backgrounds ────────────────────────────────
       for (int c = 0; c < 2; c++)
