@@ -110,7 +110,7 @@ sensor:
           if (x >= 1000.0f) snprintf(buf, sizeof(buf), "%.1f", x / 1000.0f);
           else              snprintf(buf, sizeof(buf), "%d",   (int)x);
           lv_label_set_text(id(lbl_forecast_val),  buf);
-          lv_label_set_text(id(lbl_forecast_unit), x >= 1000.0f ? "kW" : "W");
+          lv_label_set_text(id(lbl_forecast_unit),  "W");
 
 # ─── SPI Bus ──────────────────────────────────────────────────────────────────
 spi:
