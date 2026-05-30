@@ -117,6 +117,7 @@ output:
   - platform: ledc
     pin: GPIO21
     id: backlight_pwm
+    frequency: 1000Hz
 
 light:
   - platform: monochromatic
@@ -124,6 +125,7 @@ light:
     name: "Display Backlight"
     id: backlight
     restore_mode: ALWAYS_ON
+    default_transition_length: 0s
 
 # ─── Display ──────────────────────────────────────────────────────────────────
 # Layout (320×240 landscape):
