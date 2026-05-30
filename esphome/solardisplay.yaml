@@ -1,0 +1,236 @@
+esphome:
+  name: cyd-energy-display
+  friendly_name: Energy Display
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Energy-Display-AP"
+    password: !secret ap_password
+
+captive_portal:
+
+# ─── Time from Home Assistant ─────────────────────────────────────────────────
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# ─── Sensors from Home Assistant ──────────────────────────────────────────────
+# Replace entity_id values with your actual HA entities.
+# For solar forecast, Solcast integration is recommended:
+#   https://www.home-assistant.io/integrations/solcast_solar/
+# Common entity names shown as examples in comments.
+sensor:
+  - platform: homeassistant
+    id: s_battery
+    # e.g. sensor.powerwall_charge, sensor.byd_battery_soc
+    entity_id: sensor.hostname_scb_5aa77b_battery_soc
+    internal: true
+
+  - platform: homeassistant
+    id: s_solar
+    # Unit must be W (Watts). e.g. sensor.solaredge_current_power
+    entity_id: sensor.hostname_scb_5aa77b_solar_power
+    internal: true
+
+  - platform: homeassistant
+    id: s_house
+    # Unit must be W (Watts). e.g. sensor.shelly_3em_total_power
+    entity_id: sensor.hostname_scb_5aa77b_home_power
+    internal: true
+
+  - platform: homeassistant
+    id: s_forecast
+    # Unit: W or kWh depending on your integration.
+    # Solcast: sensor.solcast_forecast_next_hour (kWh → multiply by 1000 below if needed)
+    # Open-Meteo / Forecast.Solar: typically provides Wh for the next hour
+    entity_id: sensor.home_energy_next_hour
+    internal: true
+
+# ─── Colors ───────────────────────────────────────────────────────────────────
+color:
+  - id: col_bg
+    hex: "121225"
+  - id: col_header
+    hex: "1e2a4a"
+  - id: col_card
+    hex: "1a2744"
+  - id: col_border
+    hex: "2a3f6f"
+  - id: col_white
+    hex: "ffffff"
+  - id: col_gray
+    hex: "778899"
+  - id: col_green
+    hex: "00cc55"
+  - id: col_yellow
+    hex: "f0c030"
+  - id: col_red
+    hex: "ff4444"
+  - id: col_blue
+    hex: "4499ff"
+  - id: col_orange
+    hex: "ff9922"
+
+# ─── Fonts (requires internet on ESPHome build machine) ───────────────────────
+font:
+  - file: "gfonts://Roboto"
+    id: fnt_sm
+    size: 14
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:+-%/ "
+  - file: "gfonts://Roboto"
+    id: fnt_md
+    size: 20
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-. "
+  - file: "gfonts://Roboto@700"
+    id: fnt_lg
+    size: 38
+    glyphs: "0123456789.%kKWw- "
+
+# ─── SPI Bus (display uses VSPI: GPIO14/13/12) ────────────────────────────────
+spi:
+  clk_pin:  GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+# ─── Backlight ────────────────────────────────────────────────────────────────
+output:
+  - platform: ledc
+    pin: GPIO21
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Display Backlight"
+    id: backlight
+    restore_mode: ALWAYS_ON
+
+# ─── Display ──────────────────────────────────────────────────────────────────
+# Layout (320×240 landscape):
+#
+#  ┌────────────── HEADER (320×36) ──────────────┐
+#  │         HOME ENERGY MONITOR         HH:MM   │
+#  ├─────────────────────┬───────────────────────┤
+#  │  BATTERY            │  SOLAR NOW            │
+#  │      87%            │     2.4               │
+#  │  [========  ]       │      kW               │
+#  ├─────────────────────┼───────────────────────┤
+#  │  HOUSE DRAW         │  SOLAR +1H            │
+#  │     1.1             │     1.8               │
+#  │      kW             │      kW               │
+#  └─────────────────────┴───────────────────────┘
+#
+display:
+  - platform: ili9xxx
+    model: ILI9341
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    # Try rotation: 270 if the image appears mirrored
+    rotation: 90
+    update_interval: 10s
+    lambda: |-
+      const int W = 320, H = 240;
+      const int PW = 152, PH = 95;
+      const int COL_X[2] = {4, 164};
+      const int ROW_Y[2] = {40, 140};
+
+      it.fill(id(col_bg));
+
+      // ── Header ──────────────────────────────────────────
+      it.filled_rectangle(0, 0, W, 36, id(col_header));
+      it.print(W/2, 18, id(fnt_md), id(col_white), TextAlign::CENTER,
+               "HOME ENERGY MONITOR");
+      it.strftime(W-4, 18, id(fnt_sm), id(col_gray), TextAlign::CENTER_RIGHT,
+                  "%H:%M", id(ha_time).now());
+
+      // ── Card backgrounds ────────────────────────────────
+      for (int c = 0; c < 2; c++)
+        for (int r = 0; r < 2; r++) {
+          it.filled_rectangle(COL_X[c], ROW_Y[r], PW, PH, id(col_card));
+          it.rectangle(COL_X[c], ROW_Y[r], PW, PH, id(col_border));
+        }
+
+      // ── BATTERY (top-left) ──────────────────────────────
+      {
+        int x = COL_X[0], y = ROW_Y[0], cx = x + PW/2;
+        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "BATTERY");
+        if (id(s_battery).has_state()) {
+          int pct = (int)id(s_battery).state;
+          pct = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+          Color bat_c = pct < 20 ? id(col_red) : (pct < 40 ? id(col_yellow) : id(col_green));
+          it.printf(cx, y+24, id(fnt_lg), bat_c, TextAlign::TOP_CENTER, "%d%%", pct);
+          int bx = x+10, by = y+79, bw = PW-20;
+          it.filled_rectangle(bx, by, bw, 8, id(col_border));
+          it.filled_rectangle(bx, by, bw*pct/100, 8, bat_c);
+        } else {
+          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
+        }
+      }
+
+      // ── SOLAR NOW (top-right) ───────────────────────────
+      {
+        int x = COL_X[1], y = ROW_Y[0], cx = x + PW/2;
+        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "SOLAR NOW");
+        if (id(s_solar).has_state()) {
+          float v = id(s_solar).state;
+          if (v >= 1000.0f)
+            it.printf(cx, y+24, id(fnt_lg), id(col_yellow), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
+          else
+            it.printf(cx, y+24, id(fnt_lg), id(col_yellow), TextAlign::TOP_CENTER, "%d", (int)v);
+          it.print(cx, y+74, id(fnt_sm), id(col_yellow), TextAlign::TOP_CENTER,
+                   v >= 1000.0f ? "kW" : "W");
+        } else {
+          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
+        }
+      }
+
+      // ── HOUSE DRAW (bottom-left) ────────────────────────
+      {
+        int x = COL_X[0], y = ROW_Y[1], cx = x + PW/2;
+        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "HOUSE DRAW");
+        if (id(s_house).has_state()) {
+          float v = id(s_house).state;
+          if (v >= 1000.0f)
+            it.printf(cx, y+24, id(fnt_lg), id(col_blue), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
+          else
+            it.printf(cx, y+24, id(fnt_lg), id(col_blue), TextAlign::TOP_CENTER, "%d", (int)v);
+          it.print(cx, y+74, id(fnt_sm), id(col_blue), TextAlign::TOP_CENTER,
+                   v >= 1000.0f ? "kW" : "W");
+        } else {
+          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
+        }
+      }
+
+      // ── SOLAR FORECAST +1H (bottom-right) ──────────────
+      {
+        int x = COL_X[1], y = ROW_Y[1], cx = x + PW/2;
+        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "SOLAR +1H");
+        if (id(s_forecast).has_state()) {
+          float v = id(s_forecast).state;
+          if (v >= 1000.0f)
+            it.printf(cx, y+24, id(fnt_lg), id(col_orange), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
+          else
+            it.printf(cx, y+24, id(fnt_lg), id(col_orange), TextAlign::TOP_CENTER, "%d", (int)v);
+          it.print(cx, y+74, id(fnt_sm), id(col_orange), TextAlign::TOP_CENTER,
+                   v >= 1000.0f ? "kW" : "W");
+        } else {
+          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
+        }
+      }
