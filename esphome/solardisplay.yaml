@@ -88,17 +88,19 @@ color:
   - id: col_orange
     hex: "ff9922"
 
-# ─── Fonts (requires internet on ESPHome build machine) ───────────────────────
+# ─── Fonts ────────────────────────────────────────────────────────────────────
+# Place Roboto-Regular.ttf and Roboto-Bold.ttf in esphome/fonts/
+# Download from https://fonts.google.com/specimen/Roboto
 font:
-  - file: "gfonts://Roboto"
+  - file: "fonts/Roboto-Regular.ttf"
     id: fnt_sm
     size: 14
     glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:+-%/ "
-  - file: "gfonts://Roboto"
+  - file: "fonts/Roboto-Regular.ttf"
     id: fnt_md
     size: 20
     glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-. "
-  - file: "gfonts://Roboto@700"
+  - file: "fonts/Roboto-Bold.ttf"
     id: fnt_lg
     size: 38
     glyphs: "0123456789.%kKWw- "
