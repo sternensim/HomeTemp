@@ -153,6 +153,7 @@ display:
     dimensions:
       width: 320
       height: 240
+    buffer_size: 25%
     update_interval: 10s
     lambda: |-
       const int W = 320, H = 240;
