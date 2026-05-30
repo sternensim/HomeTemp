@@ -105,11 +105,12 @@ font:
     size: 38
     glyphs: "0123456789.%kKWw- "
 
-# ─── SPI Bus (display uses VSPI: GPIO14/13/12) ────────────────────────────────
+# ─── SPI Bus ──────────────────────────────────────────────────────────────────
 spi:
-  clk_pin:  GPIO14
-  mosi_pin: GPIO13
-  miso_pin: GPIO12
+  - id: display_spi
+    clk_pin:  GPIO14
+    mosi_pin: GPIO13
+    miso_pin: GPIO12
 
 # ─── Backlight ────────────────────────────────────────────────────────────────
 output:
@@ -141,13 +142,15 @@ light:
 #
 display:
   - platform: ili9xxx
-    model: ILI9341
+    model: ILI9342
+    spi_id: display_spi
     cs_pin: GPIO15
     dc_pin: GPIO2
     invert_colors: false
-    color_order: BGR
-    # Try rotation: 270 if the image appears mirrored
-    rotation: 90
+    rotation: 0
+    dimensions:
+      width: 320
+      height: 240
     update_interval: 10s
     lambda: |-
       const int W = 320, H = 240;
