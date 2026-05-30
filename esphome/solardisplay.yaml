@@ -1,3 +1,19 @@
+# ESPHome Configuration — Solar Energy Display
+# Hardware: TENSTAR ESP32-2432S028R ("Cheap Yellow Display" / CYD)
+# Display: ILI9342 320×240 landscape, LVGL UI
+#
+# Layout:
+#  ┌────────────── HEADER (320×36) ───────────────┐
+#  │       HOME ENERGY MONITOR          HH:MM     │
+#  ├──────────────────────┬───────────────────────┤
+#  │  BATTERY             │  SOLAR NOW            │
+#  │     87%              │     2.4 kW            │
+#  │  [========  ]        │                       │
+#  ├──────────────────────┼───────────────────────┤
+#  │  HOUSE DRAW          │  SOLAR +1H            │
+#  │     1.1 kW           │     1.8 kW            │
+#  └──────────────────────┴───────────────────────┘
+
 esphome:
   name: cyd-energy-display
   friendly_name: Energy Display
@@ -5,7 +21,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 logger:
 
@@ -26,84 +42,75 @@ wifi:
 
 captive_portal:
 
-# ─── Time from Home Assistant ─────────────────────────────────────────────────
+# ─── Time ─────────────────────────────────────────────────────────────────────
 time:
   - platform: homeassistant
     id: homeassistant_time
+    on_time:
+      - seconds: /1
+        then:
+          - lambda: |-
+              auto now = id(homeassistant_time).now();
+              if (!now.is_valid()) return;
+              static char buf[6];
+              now.strftime(buf, sizeof(buf), "%H:%M");
+              lv_label_set_text(id(lbl_time), buf);
 
-# ─── Sensors from Home Assistant ──────────────────────────────────────────────
-# Replace entity_id values with your actual HA entities.
-# For solar forecast, Solcast integration is recommended:
-#   https://www.home-assistant.io/integrations/solcast_solar/
-# Common entity names shown as examples in comments.
+# ─── Sensors ──────────────────────────────────────────────────────────────────
 sensor:
   - platform: homeassistant
     id: s_battery
-    # e.g. sensor.powerwall_charge, sensor.byd_battery_soc
     entity_id: sensor.hostname_scb_5aa77b_battery_soc
     internal: true
+    on_value:
+      - lambda: |-
+          int pct = (int)x;
+          pct = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+          char buf[8];
+          snprintf(buf, sizeof(buf), "%d%%", pct);
+          lv_label_set_text(id(lbl_battery_val), buf);
+          lv_color_t c = pct < 20 ? lv_color_hex(0xff4444)
+                       : pct < 40 ? lv_color_hex(0xf0c030)
+                                  : lv_color_hex(0x00cc55);
+          lv_obj_set_style_text_color(id(lbl_battery_val), c, 0);
+          lv_obj_set_style_bg_color(id(bar_battery), c, LV_PART_INDICATOR);
+          lv_bar_set_value(id(bar_battery), pct, LV_ANIM_OFF);
 
   - platform: homeassistant
     id: s_solar
-    # Unit must be W (Watts). e.g. sensor.solaredge_current_power
     entity_id: sensor.hostname_scb_5aa77b_solar_power
     internal: true
+    on_value:
+      - lambda: |-
+          char buf[10];
+          if (x >= 1000.0f) snprintf(buf, sizeof(buf), "%.1f", x / 1000.0f);
+          else              snprintf(buf, sizeof(buf), "%d",   (int)x);
+          lv_label_set_text(id(lbl_solar_val),  buf);
+          lv_label_set_text(id(lbl_solar_unit), x >= 1000.0f ? "kW" : "W");
 
   - platform: homeassistant
     id: s_house
-    # Unit must be W (Watts). e.g. sensor.shelly_3em_total_power
     entity_id: sensor.hostname_scb_5aa77b_home_power
     internal: true
+    on_value:
+      - lambda: |-
+          char buf[10];
+          if (x >= 1000.0f) snprintf(buf, sizeof(buf), "%.1f", x / 1000.0f);
+          else              snprintf(buf, sizeof(buf), "%d",   (int)x);
+          lv_label_set_text(id(lbl_house_val),  buf);
+          lv_label_set_text(id(lbl_house_unit), x >= 1000.0f ? "kW" : "W");
 
   - platform: homeassistant
     id: s_forecast
-    # Unit: W or kWh depending on your integration.
-    # Solcast: sensor.solcast_forecast_next_hour (kWh → multiply by 1000 below if needed)
-    # Open-Meteo / Forecast.Solar: typically provides Wh for the next hour
     entity_id: sensor.home_energy_next_hour
     internal: true
-
-# ─── Colors ───────────────────────────────────────────────────────────────────
-color:
-  - id: col_bg
-    hex: "121225"
-  - id: col_header
-    hex: "1e2a4a"
-  - id: col_card
-    hex: "1a2744"
-  - id: col_border
-    hex: "2a3f6f"
-  - id: col_white
-    hex: "ffffff"
-  - id: col_gray
-    hex: "778899"
-  - id: col_green
-    hex: "00cc55"
-  - id: col_yellow
-    hex: "f0c030"
-  - id: col_red
-    hex: "ff4444"
-  - id: col_blue
-    hex: "4499ff"
-  - id: col_orange
-    hex: "ff9922"
-
-# ─── Fonts ────────────────────────────────────────────────────────────────────
-# Place Roboto-Regular.ttf and Roboto-Bold.ttf in esphome/fonts/
-# Download from https://fonts.google.com/specimen/Roboto
-font:
-  - file: "fonts/Roboto-Regular.ttf"
-    id: fnt_sm
-    size: 14
-    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:+-%/ "
-  - file: "fonts/Roboto-Regular.ttf"
-    id: fnt_md
-    size: 20
-    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-. "
-  - file: "fonts/Roboto-Bold.ttf"
-    id: fnt_lg
-    size: 38
-    glyphs: "0123456789.%kKWw- "
+    on_value:
+      - lambda: |-
+          char buf[10];
+          if (x >= 1000.0f) snprintf(buf, sizeof(buf), "%.1f", x / 1000.0f);
+          else              snprintf(buf, sizeof(buf), "%d",   (int)x);
+          lv_label_set_text(id(lbl_forecast_val),  buf);
+          lv_label_set_text(id(lbl_forecast_unit), x >= 1000.0f ? "kW" : "W");
 
 # ─── SPI Bus ──────────────────────────────────────────────────────────────────
 spi:
@@ -128,23 +135,10 @@ light:
     default_transition_length: 0s
 
 # ─── Display ──────────────────────────────────────────────────────────────────
-# Layout (320×240 landscape):
-#
-#  ┌────────────── HEADER (320×36) ──────────────┐
-#  │         HOME ENERGY MONITOR         HH:MM   │
-#  ├─────────────────────┬───────────────────────┤
-#  │  BATTERY            │  SOLAR NOW            │
-#  │      87%            │     2.4               │
-#  │  [========  ]       │      kW               │
-#  ├─────────────────────┼───────────────────────┤
-#  │  HOUSE DRAW         │  SOLAR +1H            │
-#  │     1.1             │     1.8               │
-#  │      kW             │      kW               │
-#  └─────────────────────┴───────────────────────┘
-#
 display:
   - platform: ili9xxx
     model: ILI9342
+    id: my_display
     spi_id: display_spi
     cs_pin: GPIO15
     dc_pin: GPIO2
@@ -153,94 +147,178 @@ display:
     dimensions:
       width: 320
       height: 240
-    buffer_size: 25%
-    update_interval: 10s
-    lambda: |-
-      const int W = 320, H = 240;
-      const int PW = 152, PH = 95;
-      const int COL_X[2] = {4, 164};
-      const int ROW_Y[2] = {40, 140};
+    update_interval: never   # LVGL owns all redraws
 
-      it.fill(id(col_bg));
+# ─── LVGL UI ──────────────────────────────────────────────────────────────────
+lvgl:
+  displays:
+    - my_display
+  default_font: montserrat_14
 
-      // ── Header ──────────────────────────────────────────
-      it.filled_rectangle(0, 0, W, 36, id(col_header));
-      it.print(W/2, 18, id(fnt_md), id(col_white), TextAlign::CENTER,
-               "HOME ENERGY MONITOR");
-      it.strftime(W-4, 18, id(fnt_sm), id(col_gray), TextAlign::CENTER_RIGHT,
-                  "%H:%M", id(homeassistant_time).now());
+  pages:
+    - id: page_main
+      bg_color: 0x121225
+      pad_all: 0
 
-      // ── Card backgrounds ────────────────────────────────
-      for (int c = 0; c < 2; c++)
-        for (int r = 0; r < 2; r++) {
-          it.filled_rectangle(COL_X[c], ROW_Y[r], PW, PH, id(col_card));
-          it.rectangle(COL_X[c], ROW_Y[r], PW, PH, id(col_border));
-        }
+      widgets:
 
-      // ── BATTERY (top-left) ──────────────────────────────
-      {
-        int x = COL_X[0], y = ROW_Y[0], cx = x + PW/2;
-        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "BATTERY");
-        if (id(s_battery).has_state()) {
-          int pct = (int)id(s_battery).state;
-          pct = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
-          Color bat_c = pct < 20 ? id(col_red) : (pct < 40 ? id(col_yellow) : id(col_green));
-          it.printf(cx, y+24, id(fnt_lg), bat_c, TextAlign::TOP_CENTER, "%d%%", pct);
-          int bx = x+10, by = y+79, bw = PW-20;
-          it.filled_rectangle(bx, by, bw, 8, id(col_border));
-          it.filled_rectangle(bx, by, bw*pct/100, 8, bat_c);
-        } else {
-          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
-        }
-      }
+        # ── Header ────────────────────────────────────────────────────────────
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 36
+            bg_color: 0x1e2a4a
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  align: center
+                  text: "HOME ENERGY MONITOR"
+                  text_font: montserrat_20
+                  text_color: 0xffffff
+              - label:
+                  id: lbl_time
+                  align: right_mid
+                  x: -4
+                  text: "--:--"
+                  text_font: montserrat_14
+                  text_color: 0x778899
 
-      // ── SOLAR NOW (top-right) ───────────────────────────
-      {
-        int x = COL_X[1], y = ROW_Y[0], cx = x + PW/2;
-        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "SOLAR NOW");
-        if (id(s_solar).has_state()) {
-          float v = id(s_solar).state;
-          if (v >= 1000.0f)
-            it.printf(cx, y+24, id(fnt_lg), id(col_yellow), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
-          else
-            it.printf(cx, y+24, id(fnt_lg), id(col_yellow), TextAlign::TOP_CENTER, "%d", (int)v);
-          it.print(cx, y+74, id(fnt_sm), id(col_yellow), TextAlign::TOP_CENTER,
-                   v >= 1000.0f ? "kW" : "W");
-        } else {
-          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
-        }
-      }
+        # ── BATTERY (top-left) ────────────────────────────────────────────────
+        - obj:
+            x: 4
+            y: 40
+            width: 152
+            height: 95
+            bg_color: 0x1a2744
+            border_color: 0x2a3f6f
+            border_width: 1
+            radius: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  align: top_mid
+                  y: 5
+                  text: "BATTERY"
+                  text_font: montserrat_14
+                  text_color: 0x778899
+              - label:
+                  id: lbl_battery_val
+                  align: top_mid
+                  y: 22
+                  text: "---"
+                  text_font: montserrat_38
+                  text_color: 0x00cc55
+              - bar:
+                  id: bar_battery
+                  x: 10
+                  y: 79
+                  width: 132
+                  height: 8
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  bg_color: 0x2a3f6f
+                  indicator:
+                    bg_color: 0x00cc55
 
-      // ── HOUSE DRAW (bottom-left) ────────────────────────
-      {
-        int x = COL_X[0], y = ROW_Y[1], cx = x + PW/2;
-        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "HOUSE DRAW");
-        if (id(s_house).has_state()) {
-          float v = id(s_house).state;
-          if (v >= 1000.0f)
-            it.printf(cx, y+24, id(fnt_lg), id(col_blue), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
-          else
-            it.printf(cx, y+24, id(fnt_lg), id(col_blue), TextAlign::TOP_CENTER, "%d", (int)v);
-          it.print(cx, y+74, id(fnt_sm), id(col_blue), TextAlign::TOP_CENTER,
-                   v >= 1000.0f ? "kW" : "W");
-        } else {
-          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
-        }
-      }
+        # ── SOLAR NOW (top-right) ─────────────────────────────────────────────
+        - obj:
+            x: 164
+            y: 40
+            width: 152
+            height: 95
+            bg_color: 0x1a2744
+            border_color: 0x2a3f6f
+            border_width: 1
+            radius: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  align: top_mid
+                  y: 5
+                  text: "SOLAR NOW"
+                  text_font: montserrat_14
+                  text_color: 0x778899
+              - label:
+                  id: lbl_solar_val
+                  align: top_mid
+                  y: 22
+                  text: "---"
+                  text_font: montserrat_38
+                  text_color: 0xf0c030
+              - label:
+                  id: lbl_solar_unit
+                  align: top_mid
+                  y: 74
+                  text: ""
+                  text_font: montserrat_14
+                  text_color: 0xf0c030
 
-      // ── SOLAR FORECAST +1H (bottom-right) ──────────────
-      {
-        int x = COL_X[1], y = ROW_Y[1], cx = x + PW/2;
-        it.print(cx, y+5, id(fnt_sm), id(col_gray), TextAlign::TOP_CENTER, "SOLAR +1H");
-        if (id(s_forecast).has_state()) {
-          float v = id(s_forecast).state;
-          if (v >= 1000.0f)
-            it.printf(cx, y+24, id(fnt_lg), id(col_orange), TextAlign::TOP_CENTER, "%.1f", v/1000.0f);
-          else
-            it.printf(cx, y+24, id(fnt_lg), id(col_orange), TextAlign::TOP_CENTER, "%d", (int)v);
-          it.print(cx, y+74, id(fnt_sm), id(col_orange), TextAlign::TOP_CENTER,
-                   v >= 1000.0f ? "kW" : "W");
-        } else {
-          it.print(cx, y+47, id(fnt_md), id(col_gray), TextAlign::CENTER, "---");
-        }
-      }
+        # ── HOUSE DRAW (bottom-left) ──────────────────────────────────────────
+        - obj:
+            x: 4
+            y: 140
+            width: 152
+            height: 95
+            bg_color: 0x1a2744
+            border_color: 0x2a3f6f
+            border_width: 1
+            radius: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  align: top_mid
+                  y: 5
+                  text: "HOUSE DRAW"
+                  text_font: montserrat_14
+                  text_color: 0x778899
+              - label:
+                  id: lbl_house_val
+                  align: top_mid
+                  y: 22
+                  text: "---"
+                  text_font: montserrat_38
+                  text_color: 0x4499ff
+              - label:
+                  id: lbl_house_unit
+                  align: top_mid
+                  y: 74
+                  text: ""
+                  text_font: montserrat_14
+                  text_color: 0x4499ff
+
+        # ── SOLAR +1H (bottom-right) ──────────────────────────────────────────
+        - obj:
+            x: 164
+            y: 140
+            width: 152
+            height: 95
+            bg_color: 0x1a2744
+            border_color: 0x2a3f6f
+            border_width: 1
+            radius: 0
+            pad_all: 0
+            widgets:
+              - label:
+                  align: top_mid
+                  y: 5
+                  text: "SOLAR +1H"
+                  text_font: montserrat_14
+                  text_color: 0x778899
+              - label:
+                  id: lbl_forecast_val
+                  align: top_mid
+                  y: 22
+                  text: "---"
+                  text_font: montserrat_38
+                  text_color: 0xff9922
+              - label:
+                  id: lbl_forecast_unit
+                  align: top_mid
+                  y: 74
+                  text: ""
+                  text_font: montserrat_14
+                  text_color: 0xff9922
