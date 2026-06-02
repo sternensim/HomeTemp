@@ -109,7 +109,7 @@ sensor:
           char buf[10];
           snprintf(buf, sizeof(buf), "%.1f", x);
           lv_label_set_text(id(lbl_forecast_val),  buf);
-          lv_label_set_text(id(lbl_forecast_unit), "kWh");
+          lv_label_set_text(id(lbl_forecast_unit), "kW");
 
 # ─── SPI Bus ──────────────────────────────────────────────────────────────────
 spi:
@@ -319,6 +319,6 @@ lvgl:
                   id: lbl_forecast_unit
                   align: top_mid
                   y: 74
-                  text: "kWh"
+                  text: "kW"
                   text_font: montserrat_14
                   text_color: 0xff9922
